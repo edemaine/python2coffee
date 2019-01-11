@@ -31,7 +31,20 @@ def split_call_trailer(node):
   else:
     return [args]
 
-level = 0
+def prepare_string_for_interpolation(node):
+  assert is_string(node)
+  # not handling prefix like r'...'
+  if node.value.startswith("'''"):
+    assert node.value.endswith("'''")
+    node.value = re.sub(r'"""', '"\\"\\"', node.value)
+    node.value = '"""' + node.value[3:-3] + '"""'
+  elif node.value.startswith("'"):
+    assert node.value.endswith("'")
+    node.value = re.sub(r'"', '\\"', node.value)
+    node.value = '"' + node.value[1:-1] + '"'
+  node.value = re.sub(r'#', '\#', node.value)
+
+level = -1
 def recurse(node):
   global level
   level += 1
@@ -44,7 +57,7 @@ def recurse(node):
   s = ''
   if isinstance(node, parso.python.tree.Leaf):
     s += node.prefix
-  if node.type in ['name', 'number', 'string', 'operator', 'endmarker']:
+  if node.type in ['name', 'number', 'string', 'operator', 'endmarker', 'newline']:
     s += node.value
   elif hasattr(node, 'children'):
     if node.type == 'power':
@@ -58,6 +71,7 @@ def recurse(node):
           nonlocal count
           count += 1
           return '#{' + recurse(args[count]).lstrip() + '}'
+        prepare_string_for_interpolation(node.children[0])
         node.children[0].value = re.sub(r'{}', arg, node.children[0].value)
         node.children[1:3] = []
     s += ''.join(map(recurse, node.children))
@@ -67,6 +81,8 @@ def recurse(node):
   return s
 
 #tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
-tree = parso.parse('"Hello {}, your age is {}".format(name, age)', version='2.7')
+tree = parso.parse('''\
+'# Hello {}, your age is {}'.format(name, age)
+''', version='2.7')
 
 print(recurse(tree))
