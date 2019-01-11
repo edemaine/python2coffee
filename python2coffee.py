@@ -2,9 +2,6 @@
 import re
 import parso, parso.python.tree
 
-#tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
-tree = parso.parse('"Hello {}, your age is {}".format(name, age)', version='2.7')
-
 def is_leaf(node, type, value = None):
   return node.type == type and (value is None or node.value == value)
 def is_operator(node, op = None):
@@ -35,38 +32,41 @@ def split_call_trailer(node):
     return [args]
 
 level = 0
-def recurse(tree):
+def recurse(node):
   global level
   level += 1
-  if hasattr(tree, 'children'):
-    print('  ' * level + tree.type, '[%d]' % len(tree.children))
-  elif hasattr(tree, 'value'):
-    print('  ' * level + tree.type, repr(tree.value))
+  if hasattr(node, 'children'):
+    print('  ' * level + node.type, '[%d]' % len(node.children))
+  elif hasattr(node, 'value'):
+    print('  ' * level + node.type, repr(node.value))
   else:
-    print('  ' * level + tree.type)
+    print('  ' * level + node.type)
   s = ''
-  if isinstance(tree, parso.python.tree.Leaf):
-    s += tree.prefix
-  if tree.type in ['name', 'number', 'string', 'operator', 'endmarker']:
-    s += tree.value
-  elif hasattr(tree, 'children'):
-    if tree.type == 'power':
-      if len(tree.children) >= 3 and \
-         is_string(tree.children[0]) and \
-         is_method_trailer(tree.children[1], 'format') and \
-         is_call_trailer(tree.children[2]):
-        args = split_call_trailer(tree.children[2])
+  if isinstance(node, parso.python.tree.Leaf):
+    s += node.prefix
+  if node.type in ['name', 'number', 'string', 'operator', 'endmarker']:
+    s += node.value
+  elif hasattr(node, 'children'):
+    if node.type == 'power':
+      if len(node.children) >= 3 and \
+         is_string(node.children[0]) and \
+         is_method_trailer(node.children[1], 'format') and \
+         is_call_trailer(node.children[2]):
+        args = split_call_trailer(node.children[2])
         count = -1
         def arg(match):
           nonlocal count
           count += 1
           return '#{' + recurse(args[count]).lstrip() + '}'
-        tree.children[0].value = re.sub(r'{}', arg, tree.children[0].value)
-        tree.children[1:3] = []
-    s += ''.join(map(recurse, tree.children))
+        node.children[0].value = re.sub(r'{}', arg, node.children[0].value)
+        node.children[1:3] = []
+    s += ''.join(map(recurse, node.children))
   else:
-    s += str(tree)
+    s += str(node)
   level -= 1
   return s
+
+#tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
+tree = parso.parse('"Hello {}, your age is {}".format(name, age)', version='2.7')
 
 print(recurse(tree))
