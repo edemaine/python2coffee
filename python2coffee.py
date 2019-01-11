@@ -2,6 +2,8 @@
 import re
 import parso, parso.python.tree
 
+def is_node(node, type):
+  return node.type == type
 def is_leaf(node, type, value = None):
   return node.type == type and (value is None or node.value == value)
 def is_operator(node, op = None):
@@ -54,12 +56,12 @@ def recurse(node):
     print('  ' * level + node.type, repr(node.value))
   else:
     print('  ' * level + node.type)
+
   s = ''
   if isinstance(node, parso.python.tree.Leaf):
     s += node.prefix
-  if node.type in ['name', 'number', 'string', 'operator', 'endmarker', 'newline']:
-    s += node.value
-  elif hasattr(node, 'children'):
+
+  if isinstance(node, parso.python.tree.BaseNode):
     if node.type == 'power':
       if len(node.children) >= 3 and \
          is_string(node.children[0]) and \
@@ -74,15 +76,30 @@ def recurse(node):
         prepare_string_for_interpolation(node.children[0])
         node.children[0].value = re.sub(r'{}', arg, node.children[0].value)
         node.children[1:3] = []
+    elif node.type in ['for_stmt', 'while_stmt']:
+      assert is_node(node.children[-1], 'suite')
+      assert is_operator(node.children[-2], ':')
+      #node.children[-1].prefix = node.children[-2].prefix + node.children[-1].prefix
+      node.children[-2:-1] = []
+
+  #if node.type in ['name', 'number', 'string', 'operator', 'endmarker', 'newline']:
+  if isinstance(node, parso.python.tree.Leaf):
+    s += node.value
+  elif isinstance(node, parso.python.tree.BaseNode):
     s += ''.join(map(recurse, node.children))
   else:
     s += str(node)
+
   level -= 1
   return s
 
 #tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
 tree = parso.parse('''\
 '# Hello {}, your age is {}'.format(name, age)
+for item in x:
+  print item
+while True:
+  print item
 ''', version='2.7')
 
 print(recurse(tree))
