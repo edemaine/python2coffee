@@ -3,7 +3,7 @@ import re
 import parso, parso.python.tree
 
 #tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
-tree = parso.parse('y = """Hello {}""".format(x, y(5), key=z-w)', version='2.7')
+tree = parso.parse('"Hello {}, your age is {}".format(name, age)', version='2.7')
 
 def is_leaf(node, type, value = None):
   return node.type == type and (value is None or node.value == value)
@@ -60,7 +60,7 @@ def recurse(tree):
         def arg(match):
           nonlocal count
           count += 1
-          return '#{' + recurse(args[count]) + '}'
+          return '#{' + recurse(args[count]).lstrip() + '}'
         tree.children[0].value = re.sub(r'{}', arg, tree.children[0].value)
         tree.children[1:3] = []
     s += ''.join(map(recurse, tree.children))
