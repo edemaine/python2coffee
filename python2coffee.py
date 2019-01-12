@@ -8,6 +8,8 @@ def is_leaf(node, type, value = None):
   return node.type == type and (value is None or node.value == value)
 def is_operator(node, op = None):
   return is_leaf(node, 'operator', op)
+def is_keyword(node, op = None):
+  return is_leaf(node, 'keyword', op)
 def is_name(node, name = None):
   return is_leaf(node, 'name', name)
 def is_string(node):
@@ -226,11 +228,14 @@ def recurse(node):
         if r is not None:
           node.children[:2] = [r]
 
-    elif node.type in ['for_stmt', 'while_stmt']:
-      assert is_node(node.children[-1], 'suite')
-      assert is_operator(node.children[-2], ':')
-      #node.children[-1].prefix = node.children[-2].prefix + node.children[-1].prefix
-      node.children[-2:-1] = []
+    elif node.type in ['for_stmt', 'while_stmt', 'if_stmt']:
+      for i, child in reversed(list(enumerate(node.children))):
+        if is_operator(child, ':'):
+          if child.prefix:
+            warnings.warn('Discarding prefix %r to colon' % child.prefix)
+          del node.children[i]
+        if is_keyword(child, 'elif'):
+          child.value = 'else if'
 
   #if node.type in ['name', 'number', 'string', 'operator', 'endmarker', 'newline']:
   if isinstance(node, parso.python.tree.Leaf):
@@ -252,7 +257,13 @@ for item in range(2, 17):
 for item in range(2, 17, 3):
   print hex(item + 1)
 while True:
-  print item
+  item = f()
+  if item:
+    print item
+  elif forever:
+    continue
+  else:
+    break
 ''', version='2.7')
 
 dump_tree(tree)
