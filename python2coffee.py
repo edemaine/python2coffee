@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import re
+import re, warnings
 import parso, parso.python.tree
 
 def is_node(node, type):
@@ -67,6 +67,8 @@ def recurse(node):
   if isinstance(node, parso.python.tree.BaseNode):
     if node.type == 'print_stmt':
       node.children[0] = node.children[0].prefix + 'console.log'
+      if is_operator(node.children[-1], ','):
+        warnings.warn('No known analog of print with comma to prevent newline')
 
     elif node.type == 'power':
       if len(node.children) >= 3 and \
