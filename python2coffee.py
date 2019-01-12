@@ -158,7 +158,7 @@ class CoffeeScript(parso.python.tree.Leaf):
 def recurse(node):
   if isinstance(node, CoffeeScript):
     ## Code already compiled into CoffeeScript
-    return node.value
+    return node.prefix + node.value
 
   s = ''
   if isinstance(node, parso.python.tree.Leaf):
@@ -237,6 +237,13 @@ def recurse(node):
         if is_keyword(child, 'elif'):
           child.value = 'else if'
 
+    elif node.type in ['test']:
+      if is_keyword(node.children[1], 'if') and \
+         is_keyword(node.children[3], 'else'):
+        node.children = [node.children[1], node.children[2],
+          CoffeeScript('then', 'if', ' '), node.children[0],
+          node.children[3], node.children[4]]
+
   #if node.type in ['name', 'number', 'string', 'operator', 'endmarker', 'newline']:
   if isinstance(node, parso.python.tree.Leaf):
     s += node.value
@@ -251,7 +258,7 @@ tree = parso.parse('''\
 '# Hello {}, your age is {}'.format(name, age)
 ### This is a comment
 for item in range(17): # up to 16
-  print item
+  print item if item % 2 == 1 else item/2
 for item in range(2, 17):
   print str(item), 'eh?'
 for item in range(2, 17, 3):
