@@ -106,21 +106,36 @@ def recurse(node):
         prepare_string_for_interpolation(node.children[0])
         node.children[0].value = re.sub(r'{}', arg, node.children[0].value)
         node.children[1:3] = []
-      elif len(node.children) >= 2 and \
-         is_name(node.children[0], 'range') and \
-         is_call_trailer(node.children[1]):
+
+      elif len(node.children) >= 2 and is_name(node.children[0]) and \
+           is_call_trailer(node.children[1]):
+        ## Function call, possibly built-in
         args = split_call_trailer(node.children[1])
-        r = node.children[0].prefix
-        args = tuple(recurse(arg).lstrip() for arg in args)
-        if len(args) == 1:
-          r += '[0...%s]' % args[0]
-        elif len(args) == 2:
-          r += '[%s...%s]' % args
-        elif len(args) == 3:
-          r += '(_i for _i in [%s...%s] by %s)' % args
-        else:
-          warnings.warn('range with %d args' % len(args))
-          r = None
+        r = None
+
+        if is_name(node.children[0], 'range'):
+          r = node.children[0].prefix
+          args = tuple(recurse(arg).lstrip() for arg in args)
+          if len(args) == 1:
+            r += '[0...%s]' % args[0]
+          elif len(args) == 2:
+            r += '[%s...%s]' % args
+          elif len(args) == 3:
+            r += '(_i for _i in [%s...%s] by %s)' % args
+          else:
+            warnings.warn('range with %d args' % len(args))
+            r = None
+
+        elif is_name(node.children[0], 'str'):
+          if len(args) == 0: # str()
+            r = "''"
+          elif len(args) == 1: # str(x)
+            r = node.children[0].prefix + \
+                recurse(args[0]).lstrip() + \
+                '.toString()'
+          else:
+            warnings.warn('str() with %d arguments' % len(args))
+
         if r is not None:
           node.children[:2] = [r]
 
@@ -148,9 +163,9 @@ tree = parso.parse('''\
 for item in range(17):
   print item
 for item in range(2, 17):
-  print item, 'eh?'
+  print str(item), 'eh?'
 for item in range(2, 17, 3):
-  print item
+  print str(item + 1)
 while True:
   print item
 ''', version='2.7')
