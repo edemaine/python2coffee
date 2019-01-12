@@ -65,7 +65,10 @@ def recurse(node):
     s += node.prefix
 
   if isinstance(node, parso.python.tree.BaseNode):
-    if node.type == 'power':
+    if node.type == 'print_stmt':
+      node.children[0] = node.children[0].prefix + 'console.log'
+
+    elif node.type == 'power':
       if len(node.children) >= 3 and \
          is_string(node.children[0]) and \
          is_method_trailer(node.children[1], 'format') and \
@@ -120,7 +123,7 @@ tree = parso.parse('''\
 for item in range(17):
   print item
 for item in range(2, 17):
-  print item
+  print item, 'eh?'
 for item in range(2, 17, 3):
   print item
 while True:
