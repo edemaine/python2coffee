@@ -112,10 +112,11 @@ def recurse(node):
       elif len(node.children) >= 2 and is_name(node.children[0]) and \
            is_call_trailer(node.children[1]):
         ## Function call, possibly built-in
+        function = node.children[0].value
         args = split_call_trailer(node.children[1])
         r = None
 
-        if is_name(node.children[0], 'range'):
+        if function == 'range':
           r = node.children[0].prefix
           args = tuple(recurse(arg).lstrip() for arg in args)
           if len(args) == 1:
@@ -128,15 +129,23 @@ def recurse(node):
             warnings.warn('range with %d args' % len(args))
             r = None
 
-        elif is_name(node.children[0], 'str'):
-          if len(args) == 0: # str()
+        elif function in ['str', 'bin', 'oct', 'hex']:
+          if function == 'str' and len(args) == 0: # str()
             r = "''"
-          elif len(args) == 1: # str(x)
+          elif len(args) == 1: # str(x) or related
+            if function == 'str':
+              base = ''
+            elif function == 'bin':
+              base = 2
+            elif function == 'oct':
+              base = 8
+            elif function == 'hex':
+              base = 16
             r = node.children[0].prefix + \
                 recurse(args[0]).lstrip() + \
-                '.toString()'
+                '.toString(%s)' % base
           else:
-            warnings.warn('str() with %d arguments' % len(args))
+            warnings.warn('%s() with %d arguments' % (function, len(args)))
 
         if r is not None:
           node.children[:2] = [r]
@@ -165,7 +174,7 @@ for item in range(17):
 for item in range(2, 17):
   print str(item), 'eh?'
 for item in range(2, 17, 3):
-  print str(item + 1)
+  print hex(item + 1)
 while True:
   print item
 ''', version='2.7')
