@@ -8,8 +8,8 @@ def is_leaf(node, type, value = None):
   return node.type == type and (value is None or node.value == value)
 def is_operator(node, op = None):
   return is_leaf(node, 'operator', op)
-def is_name(node, op = None):
-  return is_leaf(node, 'name', op)
+def is_name(node, name = None):
+  return is_leaf(node, 'name', name)
 def is_string(node):
   return is_leaf(node, 'string')
 def is_method_trailer(node, method = None):
@@ -50,6 +50,9 @@ level = -1
 def recurse(node):
   global level
   level += 1
+  if isinstance(node, str):
+    ## Code already compiled into CoffeeScript
+    return node
   if hasattr(node, 'children'):
     print('  ' * level + node.type, '[%d]' % len(node.children))
   elif hasattr(node, 'value'):
@@ -76,6 +79,17 @@ def recurse(node):
         prepare_string_for_interpolation(node.children[0])
         node.children[0].value = re.sub(r'{}', arg, node.children[0].value)
         node.children[1:3] = []
+      elif len(node.children) >= 2 and \
+         is_name(node.children[0], 'range') and \
+         is_call_trailer(node.children[1]):
+        args = split_call_trailer(node.children[1])
+        r = node.children[0].prefix
+        if len(args) == 1:
+          r += '[0...%s]' % recurse(args[0])
+        elif len(args) == 2:
+          r += '[%s...%s]' % (recurse(args[0]), recurse(args[1]))
+        node.children[:2] = [r]
+
     elif node.type in ['for_stmt', 'while_stmt']:
       assert is_node(node.children[-1], 'suite')
       assert is_operator(node.children[-2], ':')
@@ -96,7 +110,7 @@ def recurse(node):
 #tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
 tree = parso.parse('''\
 '# Hello {}, your age is {}'.format(name, age)
-for item in x:
+for item in range(17):
   print item
 while True:
   print item
