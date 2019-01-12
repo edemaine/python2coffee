@@ -67,24 +67,101 @@ def terminate_comments(node):
   node.prefix = re.sub(r'^\s*###(?!#)(\s*).*$',
     sub, node.prefix, re.MULTILINE)
 
+# https://docs.python.org/3/reference/expressions.html#operator-precedence
+precedence = {
+  'lambda': 0,
+  'if': 1,
+  'or': 2,
+  'and': 3,
+  'not': 4,
+  'in': 5,
+  'not in': 5,
+  'is': 5,
+  'not is': 5,
+  '<': 5,
+  '<=': 5,
+  '>': 5,
+  '>=': 5,
+  '!=': 5,
+  '==': 5,
+  '|': 6,
+  '^': 7,
+  '&': 8,
+  '<<': 9,
+  '>>': 9,
+  '+': 10,
+  '-': 10,
+  '*': 11,
+  '/': 11,
+  '//': 11,
+  '%': 11,
+  '@': 11,
+  'u+': 12,
+  'u-': 12,
+  '~': 12,
+  '**': 13,
+  'await': 14,
+  '[': 15,
+  '.': 15,
+  '(': 15,
+  '{': 15,
+  'leaf': 16,
+}
+
+def top_op(root):
+  if isinstance(root, parso.python.tree.Leaf):
+    return 'leaf'
+  elif isinstance(root, parso.python.tree.BaseNode):
+    frontier = root.children
+  while frontier:
+    rest = []
+    for node in frontier:
+      if isinstance(node, parso.python.tree.Leaf) and node.value in precedence:
+        return node.value
+      elif isinstance(node, parso.python.tree.BaseNode):
+        rest.extend(node.children)
+    frontier = rest
+  warnings.warn('Could not determine top operator in %s' % node)
+  return 'lambda'
+
+def maybe_paren(node, op):
+  s = recurse(node)
+  node_op = top_op(node)
+  if precedence[node_op] < precedence[op]:
+    s = '(' + s + ')'
+  return s
+
 def dump_tree(node, level = 0):
-  if hasattr(node, 'children'):
-    print('  ' * level + node.type, '[%d]' % len(node.children))
-  elif hasattr(node, 'value'):
-    print('  ' * level + node.type, repr(node.value))
+  if hasattr(node, 'prefix'):
+    prefix = 'prefix=' + repr(node.prefix)
   else:
-    print('  ' * level + node.type)
+    prefix = ''
+  if hasattr(node, 'children'):
+    print('  ' * level + node.type, '[%d]' % len(node.children), prefix)
+  elif hasattr(node, 'value'):
+    print('  ' * level + node.type, repr(node.value), prefix)
+  else:
+    print('  ' * level + node.type, prefix)
   if isinstance(node, parso.python.tree.BaseNode):
     for child in node.children:
       dump_tree(child, level+1)
 
+class CoffeeScript(parso.python.tree.Leaf):
+  type = 'coffee'
+  def __init__(self, value, outermost, prefix=''):
+    parso.python.tree.Leaf.__init__(self, value, (-1,-1), prefix)
+                                               # start_pos meaningless
+    self.outermost = outermost
+
 def recurse(node):
-  if isinstance(node, str):
+  if isinstance(node, CoffeeScript):
     ## Code already compiled into CoffeeScript
-    return node
+    return node.value
 
   s = ''
   if isinstance(node, parso.python.tree.Leaf):
+    if node.type == 'error_leaf':
+      warnings.warn('ERROR LEAF DETECTED: %s' % node)
     terminate_comments(node)
     s += node.prefix
 
@@ -117,17 +194,16 @@ def recurse(node):
         r = None
 
         if function == 'range':
-          r = node.children[0].prefix
+          prefix = node.children[0].prefix
           args = tuple(recurse(arg).lstrip() for arg in args)
           if len(args) == 1:
-            r += '[0...%s]' % args[0]
+            r = CoffeeScript(prefix + '[0...%s]' % args[0], '[')
           elif len(args) == 2:
-            r += '[%s...%s]' % args
+            r = CoffeeScript(prefix + '[%s...%s]' % args, '[')
           elif len(args) == 3:
-            r += '(_i for _i in [%s...%s] by %s)' % args
+            r = CoffeeScript(prefix + '(_i for _i in [%s...%s] by %s)' % args, '(')
           else:
             warnings.warn('range with %d args' % len(args))
-            r = None
 
         elif function in ['str', 'bin', 'oct', 'hex']:
           if function == 'str' and len(args) == 0: # str()
@@ -141,9 +217,9 @@ def recurse(node):
               base = 8
             elif function == 'hex':
               base = 16
-            r = node.children[0].prefix + \
-                recurse(args[0]).lstrip() + \
-                '.toString(%s)' % base
+            r = CoffeeScript(node.children[0].prefix +
+                  maybe_paren(args[0], '.') +
+                  '.toString(%s)' % base, '.')
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
@@ -169,7 +245,7 @@ def recurse(node):
 tree = parso.parse('''\
 '# Hello {}, your age is {}'.format(name, age)
 ### This is a comment
-for item in range(17):
+for item in range(17): # up to 16
   print item
 for item in range(2, 17):
   print str(item), 'eh?'
