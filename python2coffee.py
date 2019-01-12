@@ -46,6 +46,27 @@ def prepare_string_for_interpolation(node):
     node.value = '"' + node.value[1:-1] + '"'
   node.value = re.sub(r'#', '\#', node.value)
 
+def terminate_comments(node):
+  '''Fix ### (not shorter or longer) to not go beyond the line'''
+  def sub(match):
+    s = match.group(0)
+    def end(endMatch):
+      if len(endMatch.group(1)) == 0:
+        return match.group(1) + '###' + endMatch.group(2)
+      elif len(endMatch.group(1)) != 3:
+        return '###' + endMatch.group(2)
+      else:
+        return endMatch.group(0)
+    s = re.sub(r'(#*)(\s*)$', end, s)
+    split = re.search(r'^(\s*###)(.*?)(###\s*)$', s)
+    assert split is not None
+    middle = split.group(2)
+    middle = re.sub(r'(?<!#)###(?!#)', '####', middle)
+    s = split.group(1) + middle + split.group(3)
+    return s
+  node.prefix = re.sub(r'^\s*###(?!#)(\s*).*$',
+    sub, node.prefix, re.MULTILINE)
+
 level = -1
 def recurse(node):
   global level
@@ -62,6 +83,7 @@ def recurse(node):
 
   s = ''
   if isinstance(node, parso.python.tree.Leaf):
+    terminate_comments(node)
     s += node.prefix
 
   if isinstance(node, parso.python.tree.BaseNode):
@@ -122,6 +144,7 @@ def recurse(node):
 #tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
 tree = parso.parse('''\
 '# Hello {}, your age is {}'.format(name, age)
+### This is a comment
 for item in range(17):
   print item
 for item in range(2, 17):
