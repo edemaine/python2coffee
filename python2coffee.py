@@ -84,11 +84,18 @@ def recurse(node):
          is_call_trailer(node.children[1]):
         args = split_call_trailer(node.children[1])
         r = node.children[0].prefix
+        args = tuple(recurse(arg).lstrip() for arg in args)
         if len(args) == 1:
-          r += '[0...%s]' % recurse(args[0])
+          r += '[0...%s]' % args[0]
         elif len(args) == 2:
-          r += '[%s...%s]' % (recurse(args[0]), recurse(args[1]))
-        node.children[:2] = [r]
+          r += '[%s...%s]' % args
+        elif len(args) == 3:
+          r += '(_i for _i in [%s...%s] by %s)' % args
+        else:
+          warnings.warn('range with %d args' % len(args))
+          r = None
+        if r is not None:
+          node.children[:2] = [r]
 
     elif node.type in ['for_stmt', 'while_stmt']:
       assert is_node(node.children[-1], 'suite')
@@ -111,6 +118,10 @@ def recurse(node):
 tree = parso.parse('''\
 '# Hello {}, your age is {}'.format(name, age)
 for item in range(17):
+  print item
+for item in range(2, 17):
+  print item
+for item in range(2, 17, 3):
   print item
 while True:
   print item
