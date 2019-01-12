@@ -67,19 +67,21 @@ def terminate_comments(node):
   node.prefix = re.sub(r'^\s*###(?!#)(\s*).*$',
     sub, node.prefix, re.MULTILINE)
 
-level = -1
-def recurse(node):
-  global level
-  level += 1
-  if isinstance(node, str):
-    ## Code already compiled into CoffeeScript
-    return node
+def dump_tree(node, level = 0):
   if hasattr(node, 'children'):
     print('  ' * level + node.type, '[%d]' % len(node.children))
   elif hasattr(node, 'value'):
     print('  ' * level + node.type, repr(node.value))
   else:
     print('  ' * level + node.type)
+  if isinstance(node, parso.python.tree.BaseNode):
+    for child in node.children:
+      dump_tree(child, level+1)
+
+def recurse(node):
+  if isinstance(node, str):
+    ## Code already compiled into CoffeeScript
+    return node
 
   s = ''
   if isinstance(node, parso.python.tree.Leaf):
@@ -152,8 +154,6 @@ def recurse(node):
     s += ''.join(map(recurse, node.children))
   else:
     s += str(node)
-
-  level -= 1
   return s
 
 #tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
@@ -170,4 +170,6 @@ while True:
   print item
 ''', version='2.7')
 
+dump_tree(tree)
+print('==> CoffeeScript:')
 print(recurse(tree))
