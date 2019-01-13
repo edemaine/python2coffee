@@ -165,6 +165,8 @@ precedence = {
 def top_op(root):
   if isinstance(root, parso.python.tree.Leaf):
     return 'leaf'
+  elif isinstance(root, CoffeeScript):
+    return root.outermost
   elif isinstance(root, parso.python.tree.BaseNode):
     frontier = root.children
   while frontier:
@@ -172,6 +174,8 @@ def top_op(root):
     for node in frontier:
       if isinstance(node, parso.python.tree.Leaf) and node.value in precedence:
         return node.value
+      elif isinstance(node, CoffeeScript):
+        return node.outermost
       elif isinstance(node, parso.python.tree.BaseNode):
         rest.extend(node.children)
     frontier = rest
@@ -386,6 +390,22 @@ def recurse(node):
               base = 16
             r = CoffeeScript(maybe_paren(args[0][0], '.') +
                   '.toString(%s)' % base, '.', prefix)
+          else:
+            warnings.warn('%s() with %d arguments' % (function, len(args)))
+
+        elif function == 'ord':
+          assert_simple_args()
+          if len(args) == 1:
+            r = CoffeeScript(maybe_paren(args[0][0], '.') +
+                  '.charCodeAt()', '.', prefix)
+          else:
+            warnings.warn('%s() with %d arguments' % (function, len(args)))
+
+        elif function == 'chr':
+          assert_simple_args()
+          if len(args) == 1:
+            r = CoffeeScript('String.fromCharCode(%s)' %
+              recurse(args[0][0]), '.', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
