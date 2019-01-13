@@ -53,6 +53,17 @@ def fix_call_trailer(node):
       warnings.warn('No analog to f(**dargs) in CoffeeScript')
     elif is_operator(arg, '='):
       warnings.warn('No support yet for f(key=value)')
+def fix_parameters(node):
+  assert is_node(node, 'parameters')
+  assert is_operator(node.children[0], '(')
+  assert is_operator(node.children[-1], ')')
+  for param in node.children[1:-1]:
+    assert is_node(param, 'param')
+    for arg in param.children:
+      if is_operator(arg, '*'):
+        arg.value = '...'
+      elif is_operator(arg, '**'):
+        warnings.warn('No analog to def(**dargs) in CoffeeScript')
 
 def avoid_string_for_interpolation(node):
   assert is_string(node)
@@ -216,6 +227,17 @@ def recurse(node):
       if is_operator(node.children[-1], ','):
         warnings.warn('No known analog of print with comma to prevent newline')
 
+    elif node.type == 'funcdef':
+      assert is_keyword(node.children[0], 'def')
+      assert is_name(node.children[1])
+      node.children[1].prefix = node.children[0].prefix
+      del node.children[0]
+      node.children[1:1] = [CoffeeScript(' = ', 'leaf')]
+      fix_parameters(node.children[2])
+      assert is_node(node.children[-1], 'suite')
+      assert is_operator(node.children[-2], ':')
+      node.children[-2].value = ' ->'
+
     elif node.type == 'lambdef':
       assert is_keyword(node.children[0], 'lambda')
       if node.children[1].type == 'param':
@@ -223,10 +245,10 @@ def recurse(node):
         node.children[1].children[0].prefix = \
           node.children[1].children[0].prefix.lstrip()
         assert is_operator(node.children[2], ':')
-        node.children[2].value = ') =>'
+        node.children[2].value = ') ->'
       else:
         assert is_operator(node.children[1], ':')
-        node.children[0].value = '() =>'
+        node.children[0].value = '() ->'
         del node.children[1]
 
     elif node.type == 'power':

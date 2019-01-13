@@ -12,6 +12,10 @@ for item in range(2, 17, 3):
   L.append (lambda: item)
   L.append (lambda item=item: item)
 max(L) == max(*L)
+def mysum(initial, *args):
+  for arg in args:
+    initial += arg
+  return initial
 while True:
   item = f()
   if item:
