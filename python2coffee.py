@@ -262,7 +262,6 @@ def recurse(node):
         node.children[1:1] = [CoffeeScript(': ', 'leaf')]
         self = node.children[2].children[1].children[0]
         if is_name(self):
-          name_replace(node.children[-1], re.compile(r'^_*this$'), r'_\g<0>')
           name_replace(node.children[-1], self.value, 'this')
           parameters = node.children[2]
           del parameters.children[1]
@@ -400,8 +399,12 @@ def recurse(node):
     s += str(node)
   return s
 
-def recurse_list(x):
-  return ''.join(map(recurse, x))
+def recurse_list(node_list):
+  return ''.join(map(recurse, node_list))
+
+def convert_tree(node):
+  name_replace(node, re.compile(r'^_*this$'), r'_\g<0>')
+  return recurse(node)
 
 argparser = argparse.ArgumentParser(
   description="Attempt to convert Python code into CoffeeScript")
@@ -420,7 +423,7 @@ def main():
     dump_tree(tree)
     csname = os.path.splitext(filename)[0] + '.coffee'
     print('==>', csname)
-    cs = recurse(tree)
+    cs = convert_tree(tree)
     with open(csname, 'w') as csfile:
       csfile.write(cs)
 
