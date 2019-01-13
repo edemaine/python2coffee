@@ -19,6 +19,11 @@ def is_string(node):
   return is_leaf(node, 'string')
 def is_block(node):
   return is_node(node, 'suite') or is_node(node, 'simple_stmt')
+## True and False are keywords in Python 3, names in Python 2
+def is_true(node):
+  return node.type in ['keyword', 'name'] and node.value == 'True'
+def is_false(node):
+  return node.type in ['keyword', 'name'] and node.value == 'False'
 def is_method_trailer(node, method = None):
   return node.type == 'trailer' and len(node.children) == 2 and \
     is_operator(node.children[0], '.') and \
@@ -239,9 +244,11 @@ def recurse(node):
     elif node.type == 'name':
       if is_name(node, 'this'): # Now-unescaped this must be from class method
         node.value = '@'
-    elif node.type == 'keyword':
-      if node.value in ['True', 'False']:
-        node.value = node.value.lower()
+
+    if is_true(node):
+      node.value = 'true'
+    elif is_false(node):
+      node.value = 'false'
 
   if isinstance(node, parso.python.tree.BaseNode):
     if is_call_trailer(node):
@@ -389,7 +396,7 @@ def recurse(node):
         elif is_keyword(child, 'else') and node.type != 'if_stmt':
           warnings.warn('No support for else clause in %s' % node.type)
 
-      if node.type == 'while_stmt' and is_keyword(node.children[1], 'True'):
+      if node.type == 'while_stmt' and is_true(node.children[1]):
         node.children[0].value = 'loop'
         del node.children[1]
 
