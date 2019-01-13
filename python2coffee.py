@@ -208,7 +208,8 @@ def recurse(node):
           count += 1
           return '#{' + recurse(args[count]).lstrip() + '}'
         prepare_string_for_interpolation(node.children[0])
-        node.children[0].value = re.sub(r'{}', arg, node.children[0].value)
+        node.children[0] = CoffeeScript(
+          re.sub(r'{}', arg, node.children[0].value), 'leaf')
         node.children[1:3] = []
 
       elif len(node.children) >= 2 and is_name(node.children[0]) and \
