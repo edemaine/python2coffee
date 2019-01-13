@@ -137,6 +137,7 @@ precedence = {
   '>=': 5,
   '!=': 5,
   '==': 5,
+  'instanceof': 5, # CoffeeScript only
   '|': 6,
   '^': 7,
   '&': 8,
@@ -336,24 +337,24 @@ def recurse(node):
       elif len(node.children) >= 2 and is_name(node.children[0]) and \
            is_call_trailer(node.children[1]):
         function = node.children[0].value
+        prefix = node.children[0].prefix
         args = split_call_trailer(node.children[1])
         r = None
 
         if function == 'range':
-          prefix = node.children[0].prefix
           args = tuple(recurse_list(arg).lstrip() for arg in args)
           if len(args) == 1:
-            r = CoffeeScript(prefix + '[0...%s]' % args[0], '[')
+            r = CoffeeScript('[0...%s]' % args[0], '[', prefix)
           elif len(args) == 2:
-            r = CoffeeScript(prefix + '[%s...%s]' % args, '[')
+            r = CoffeeScript('[%s...%s]' % args, '[', prefix)
           elif len(args) == 3:
-            r = CoffeeScript(prefix + '(_i for _i in [%s...%s] by %s)' % args, '(')
+            r = CoffeeScript('(_i for _i in [%s...%s] by %s)' % args, '(', prefix)
           else:
             warnings.warn('range with %d args' % len(args))
 
         elif function in ['str', 'bin', 'oct', 'hex']:
           if function == 'str' and len(args) == 0: # str()
-            r = "''"
+            r = CoffeeScript("''", 'leaf')
           elif len(args) == 1: # str(x) or related
             if len(args[0]) != 1:
               warnings.warn('Unrecognized argument to %s: %s' %
@@ -366,9 +367,21 @@ def recurse(node):
               base = 8
             elif function == 'hex':
               base = 16
-            r = CoffeeScript(node.children[0].prefix +
-                  maybe_paren(args[0][0], '.') +
-                  '.toString(%s)' % base, '.')
+            r = CoffeeScript(maybe_paren(args[0][0], '.') +
+                  '.toString(%s)' % base, '.', prefix)
+          else:
+            warnings.warn('%s() with %d arguments' % (function, len(args)))
+
+        elif function == 'isinstance':
+          if len(args) == 2:
+            for i in range(2):
+              if len(args[i]) != 1:
+                warnings.warn('Unrecognized argument to %s: %s' %
+                  (function, args[i]))
+            r = CoffeeScript('%s instanceof %s' %
+              (maybe_paren(args[0][0], 'instanceof'),
+               maybe_paren(args[1][0], 'instanceof').lstrip()),
+              'instanceof', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
@@ -416,11 +429,12 @@ def recurse(node):
           assert len(node.children[1].children) == 2
           node.children[1] = node.children[1].children[1]
 
+      ## One-liners
       assert is_block(node.children[-1])
       if is_node(node.children[-1], 'simple_stmt'): # vs. suite
         node.children[0:0] = [node.children.pop()]
-        node.children[0].children[0].prefix, node.children[1].prefix = \
-          node.children[1].prefix, node.children[0].children[0].prefix or ' '
+        node.children[0].get_first_leaf().prefix, node.children[1].prefix = \
+          node.children[1].prefix, node.children[0].get_first_leaf().prefix or ' '
         if is_newline(node.children[0].children[-1]):
           node.children.append(node.children[0].children.pop())
 

@@ -2,6 +2,7 @@
 '###'
 "###"
 '# Hello {}, your age is {}'.format(name, age)
+if not isinstance(x, str): x = str(x)
 ### This is a comment
 for item in range(17): # up to 16
   assert 0 <= item < 17
