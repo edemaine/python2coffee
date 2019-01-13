@@ -5,7 +5,8 @@ import parso, parso.python.tree
 def is_node(node, type):
   return node.type == type
 def is_leaf(node, type, value = None):
-  return node.type == type and (value is None or node.value == value)
+  return node.type == type and (value is None or node.value == value or
+    (hasattr(value, 'search') and value.search(node.value)))
 def is_operator(node, op = None):
   return is_leaf(node, 'operator', op)
 def is_keyword(node, op = None):
@@ -178,6 +179,23 @@ method_mapping = {
   'append': 'push',
 }
 
+def leaf_iter(node):
+  first = node.get_first_leaf()
+  last = node.get_last_leaf()
+  leaf = first
+  yield leaf
+  while leaf is not last:
+    leaf = leaf.get_next_leaf()
+    yield leaf
+
+def name_replace(node, match, repl):
+  for leaf in leaf_iter(node):
+    if is_name(leaf, match):
+      if hasattr(match, 'sub'):
+        leaf.value = match.sub(repl, leaf.value)
+      else:
+        leaf.value = repl
+
 def dump_tree(node, level = 0):
   if hasattr(node, 'prefix'):
     prefix = 'prefix=' + repr(node.prefix)
@@ -214,6 +232,9 @@ def recurse(node):
 
     if node.type == 'string':
       avoid_string_for_interpolation(node)
+    if is_name(node, 'this'):
+      if parso.tree.search_ancestor(node, 'classdef'):
+        node.value = '@'
 
   if isinstance(node, parso.python.tree.BaseNode):
     if is_call_trailer(node):
@@ -232,11 +253,36 @@ def recurse(node):
       assert is_name(node.children[1])
       node.children[1].prefix = node.children[0].prefix
       del node.children[0]
-      node.children[1:1] = [CoffeeScript(' = ', 'leaf')]
+      if is_node(node.parent, 'suite') and \
+         node.parent.parent.type == 'classdef':  ## class method
+        if is_name(node.children[0], '__init__'):
+          node.children[0].value = 'constructor'
+        elif is_name(node.children[0], '__str__'):
+          node.children[0].value = 'toString'
+        node.children[1:1] = [CoffeeScript(': ', 'leaf')]
+        self = node.children[2].children[1].children[0]
+        if is_name(self):
+          name_replace(node.children[-1], re.compile(r'^_*this$'), r'_\g<0>')
+          name_replace(node.children[-1], self.value, 'this')
+          parameters = node.children[2]
+          del parameters.children[1]
+          if len(parameters.children) > 2:
+            if isinstance(parameters.children[1], parso.python.tree.Leaf):
+              parameters.children[1].prefix = parameters.children[1].prefix.lstrip()
+            else:
+              parameters.children[1].children[0].prefix = parameters.children[1].children[0].prefix.lstrip()
+        else:
+          warnings.warn('method without self argument: %s' % self)
+      else:
+        node.children[1:1] = [CoffeeScript(' = ', 'leaf')]
       fix_parameters(node.children[2])
       assert is_node(node.children[-1], 'suite')
       assert is_operator(node.children[-2], ':')
-      node.children[-2].value = ' ->'
+      in_class = parso.tree.search_ancestor(node, 'classdef')
+      if in_class and in_class is not node.parent.parent:
+        node.children[-2].value = ' =>'
+      else:
+        node.children[-2].value = ' ->'
 
     elif node.type == 'lambdef':
       assert is_keyword(node.children[0], 'lambda')
@@ -313,6 +359,13 @@ def recurse(node):
         if r is not None:
           node.children[:2] = [r]
 
+      # this.x -> @x
+      elif len(node.children) >= 2 and is_name(node.children[0], 'this') and \
+           is_method_trailer(node.children[1]):
+        if parso.tree.search_ancestor(node, 'classdef'):
+          node.children[0].value = '@'
+          del node.children[1].children[0]
+
       ## Method name mapping
       for child in node.children:
         if is_method_trailer(child) and child.children[1].value in method_mapping:
@@ -326,6 +379,10 @@ def recurse(node):
           del node.children[i]
         if is_keyword(child, 'elif'):
           child.value = 'else if'
+
+    elif node.type == 'classdef':
+      assert is_operator(node.children[-2], ':')
+      del node.children[-2]
 
     elif node.type in ['test']:
       if is_keyword(node.children[1], 'if') and \

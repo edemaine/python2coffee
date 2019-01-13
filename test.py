@@ -24,3 +24,20 @@ while True:
     continue
   else:
     break
+class Point:
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y
+  def translate(self, dx, dy):
+    self.x += dx
+    self.y += dy
+  def __str__(self):
+    this = self
+    return "({}, {})".format(self.x, self.y)
+class Accumulator:
+  def __init__(self):
+    self.value = 0
+  def adder(self):
+    def add(x):
+      self.value += x
+    return add
