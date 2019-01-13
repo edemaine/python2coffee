@@ -25,6 +25,8 @@ while True:
     continue
   else:
     break
+  if not done: break
+while not done: break
 class Point:
   def __init__(self, x, y):
     self.x = x

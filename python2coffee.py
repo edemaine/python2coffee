@@ -7,6 +7,8 @@ def is_node(node, type):
 def is_leaf(node, type, value = None):
   return node.type == type and (value is None or node.value == value or
     (hasattr(value, 'search') and value.search(node.value)))
+def is_newline(node):
+  return is_leaf(node, 'newline')
 def is_operator(node, op = None):
   return is_leaf(node, 'operator', op)
 def is_keyword(node, op = None):
@@ -15,6 +17,8 @@ def is_name(node, name = None):
   return is_leaf(node, 'name', name)
 def is_string(node):
   return is_leaf(node, 'string')
+def is_block(node):
+  return is_node(node, 'suite') or is_node(node, 'simple_stmt')
 def is_method_trailer(node, method = None):
   return node.type == 'trailer' and len(node.children) == 2 and \
     is_operator(node.children[0], '.') and \
@@ -256,7 +260,7 @@ def recurse(node):
       assert is_name(node.children[1])
       node.children[1].prefix = node.children[0].prefix
       del node.children[0]
-      if is_node(node.parent, 'suite') and \
+      if node.parent and node.parent.parent and \
          node.parent.parent.type == 'classdef':  ## class method
         if is_name(node.children[0], '__init__'):
           node.children[0].value = 'constructor'
@@ -278,7 +282,7 @@ def recurse(node):
       else:
         node.children[1:1] = [CoffeeScript(' = ', 'leaf')]
       fix_parameters(node.children[2])
-      assert is_node(node.children[-1], 'suite')
+      assert is_block(node.children[-1])
       assert is_operator(node.children[-2], ':')
       in_class = parso.tree.search_ancestor(node, 'classdef')
       if in_class and in_class is not node.parent.parent:
@@ -374,6 +378,7 @@ def recurse(node):
           child.children[1].value = method_mapping[child.children[1].value]
 
     elif node.type in ['for_stmt', 'while_stmt', 'if_stmt']:
+      assert is_keyword(node.children[0], node.type.split('_', 1)[0])
       for i, child in reversed(list(enumerate(node.children))):
         if is_operator(child, ':'):
           if child.prefix:
@@ -387,6 +392,27 @@ def recurse(node):
       if node.type == 'while_stmt' and is_keyword(node.children[1], 'True'):
         node.children[0].value = 'loop'
         del node.children[1]
+
+      if is_node(node.children[1], 'not_test') and \
+         is_keyword(node.children[1].children[0], 'not'):
+        unnot = True
+        if node.type == 'while_stmt':
+          node.children[0].value = 'until'
+        elif node.type == 'if_stmt':
+          node.children[0].value = 'unless'
+        else:
+          unnot = True
+        if unnot:
+          assert len(node.children[1].children) == 2
+          node.children[1] = node.children[1].children[1]
+
+      assert is_block(node.children[-1])
+      if is_node(node.children[-1], 'simple_stmt'): # vs. suite
+        node.children[0:0] = [node.children.pop()]
+        node.children[0].children[0].prefix, node.children[1].prefix = \
+          node.children[1].prefix, node.children[0].children[0].prefix or ' '
+        if is_newline(node.children[0].children[-1]):
+          node.children.append(node.children[0].children.pop())
 
     elif node.type == 'classdef':
       assert is_operator(node.children[-2], ':')
