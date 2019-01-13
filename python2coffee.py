@@ -262,6 +262,9 @@ def recurse(node):
       if is_operator(node.children[-1], ','):
         warnings.warn('No known analog of print with comma to prevent newline')
 
+    elif node.type == 'assert_stmt':
+      node.children[0].value = 'console.assert'
+
     elif node.type == 'funcdef':
       assert is_keyword(node.children[0], 'def')
       assert is_name(node.children[1])
