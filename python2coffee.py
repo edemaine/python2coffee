@@ -232,9 +232,12 @@ def recurse(node):
 
     if node.type == 'string':
       avoid_string_for_interpolation(node)
-    if is_name(node, 'this'):
-      if parso.tree.search_ancestor(node, 'classdef'):
+    elif node.type == 'name':
+      if is_name(node, 'this'): # Now-unescaped this must be from class method
         node.value = '@'
+    elif node.type == 'keyword':
+      if node.value in ['True', 'False']:
+        node.value = node.value.lower()
 
   if isinstance(node, parso.python.tree.BaseNode):
     if is_call_trailer(node):
@@ -378,6 +381,12 @@ def recurse(node):
           del node.children[i]
         if is_keyword(child, 'elif'):
           child.value = 'else if'
+        elif is_keyword(child, 'else') and node.type != 'if_stmt':
+          warnings.warn('No support for else clause in %s' % node.type)
+
+      if node.type == 'while_stmt' and is_keyword(node.children[1], 'True'):
+        node.children[0].value = 'loop'
+        del node.children[1]
 
     elif node.type == 'classdef':
       assert is_operator(node.children[-2], ':')
