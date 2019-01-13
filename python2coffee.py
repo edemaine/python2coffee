@@ -187,7 +187,7 @@ def recurse(node):
       node.children[0].prefix = node.children[0].prefix.lstrip()
 
     if node.type == 'print_stmt':
-      node.children[0] = node.children[0].prefix + 'console.log'
+      node.children[0].value = 'console.log'
       if is_operator(node.children[-1], ','):
         warnings.warn('No known analog of print with comma to prevent newline')
 
