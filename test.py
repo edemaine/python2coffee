@@ -1,4 +1,6 @@
 # Python 2.7 code
+'###'
+"###"
 '# Hello {}, your age is {}'.format(name, age)
 ### This is a comment
 for item in range(17): # up to 16

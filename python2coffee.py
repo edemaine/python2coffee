@@ -35,6 +35,17 @@ def split_call_trailer(node):
   else:
     return [args]
 
+def avoid_string_for_interpolation(node):
+  assert is_string(node)
+  if re.search(r'''['"]''', node.value).group(0) == "'":
+    return # no need to escape '#' in single-quoted strings
+  def sub(match):
+    if len(match.group(1)) % 2 == 0:
+      return '\\' + match.group(0)
+    else:
+      return match.group(0)  # already escaped
+  node.value = re.sub(r'(\\*)#', sub, node.value)
+
 def prepare_string_for_interpolation(node):
   assert is_string(node)
   # not handling prefix like r'...'
@@ -46,7 +57,7 @@ def prepare_string_for_interpolation(node):
     assert node.value.endswith("'")
     node.value = re.sub(r'"', '\\"', node.value)
     node.value = '"' + node.value[1:-1] + '"'
-  node.value = re.sub(r'#', '\#', node.value)
+  avoid_string_for_interpolation(node)
 
 def terminate_comments(node):
   '''Fix ### (not shorter or longer) to not go beyond the line'''
@@ -166,6 +177,9 @@ def recurse(node):
       warnings.warn('ERROR LEAF DETECTED: %s' % node)
     terminate_comments(node)
     s += node.prefix
+
+    if node.type == 'string':
+      avoid_string_for_interpolation(node)
 
   if isinstance(node, parso.python.tree.BaseNode):
     if node.type == 'print_stmt':
