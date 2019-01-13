@@ -484,7 +484,8 @@ def recurse_list(node_list):
   return ''.join(map(recurse, node_list))
 
 def convert_tree(node):
-  name_replace(node, re.compile(r'^_*this$'), r'_\g<0>')
+  # Escape existing use of CoffeeScript keywords not in Python
+  name_replace(node, re.compile(r'^_*(this|function)$'), r'_\g<0>')
   return recurse(node)
 
 argparser = argparse.ArgumentParser(
