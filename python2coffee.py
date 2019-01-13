@@ -186,7 +186,18 @@ def maybe_paren(node, op):
   return s
 
 method_mapping = {
+  # list
   'append': 'push',
+  # str
+  'startswith': 'startsWith',
+  'endswith': 'endsWith',
+  'find': 'indexOf',
+  'rfind': 'lastIndexOf',
+  'lower': 'toLowerCase',
+  'upper': 'toUpperCase',
+  'strip': 'trim',
+  'lstrip': 'trimStart',
+  'rstrip': 'trimEnd',
 }
 
 def leaf_iter(node):
