@@ -351,9 +351,17 @@ def recurse(node):
         prefix = node.children[0].prefix
         args = split_call_trailer(node.children[1])
         r = None
+        def assert_simple_arg(arg):
+          if len(arg) != 1:
+            warnings.warn('Unrecognized argument to %s: %s' %
+              (function, arg))
+        def assert_simple_args():
+          for arg in args:
+            assert_simple_arg(arg)
 
         if function == 'range':
-          args = tuple(recurse_list(arg).lstrip() for arg in args)
+          assert_simple_args()
+          args = tuple(recurse(arg[0]).lstrip() for arg in args)
           if len(args) == 1:
             r = CoffeeScript('[0...%s]' % args[0], '[', prefix)
           elif len(args) == 2:
@@ -364,12 +372,10 @@ def recurse(node):
             warnings.warn('range with %d args' % len(args))
 
         elif function in ['str', 'bin', 'oct', 'hex']:
+          assert_simple_args()
           if function == 'str' and len(args) == 0: # str()
             r = CoffeeScript("''", 'leaf')
           elif len(args) == 1: # str(x) or related
-            if len(args[0]) != 1:
-              warnings.warn('Unrecognized argument to %s: %s' %
-                (function, args[0]))
             if function == 'str':
               base = ''
             elif function == 'bin':
@@ -384,15 +390,20 @@ def recurse(node):
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
         elif function == 'isinstance':
+          assert_simple_args()
           if len(args) == 2:
-            for i in range(2):
-              if len(args[i]) != 1:
-                warnings.warn('Unrecognized argument to %s: %s' %
-                  (function, args[i]))
             r = CoffeeScript('%s instanceof %s' %
               (maybe_paren(args[0][0], 'instanceof'),
                maybe_paren(args[1][0], 'instanceof').lstrip()),
               'instanceof', prefix)
+          else:
+            warnings.warn('%s() with %d arguments' % (function, len(args)))
+
+        elif function == 'len':
+          assert_simple_args()
+          if len(args) == 1:
+            r = CoffeeScript('%s.length' % maybe_paren(args[0][0], '.'),
+                  '.', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
