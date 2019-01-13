@@ -182,6 +182,10 @@ def recurse(node):
       avoid_string_for_interpolation(node)
 
   if isinstance(node, parso.python.tree.BaseNode):
+    ## Avoid spaces before function and arguments in function call
+    if is_call_trailer(node):
+      node.children[0].prefix = node.children[0].prefix.lstrip()
+
     if node.type == 'print_stmt':
       node.children[0] = node.children[0].prefix + 'console.log'
       if is_operator(node.children[-1], ','):
