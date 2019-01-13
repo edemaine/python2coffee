@@ -28,12 +28,31 @@ def split_call_trailer(node):
   assert is_call_trailer(node)
   args = node.children[1]
   if args.type == 'arglist':
-    commas = args.children[1::2]
-    for comma in commas:
-      assert is_operator(comma, ',')
-    return args.children[0::2]
+    groups = [[]]
+    for arg in args.children:
+      if is_operator(arg, ','):
+        groups.append([])
+      else:
+        groups[-1].append(arg)
+    if not groups[-1]:
+      groups.pop()
+    return groups
   else:
-    return [args]
+    return [node.children[1:-1]]
+def fix_call_trailer(node):
+  assert is_call_trailer(node)
+  args = node.children[1]
+  if args.type == 'arglist':
+    children = args.children
+  else:
+    children = node.children[1:-1]
+  for arg in children:
+    if is_operator(arg, '*'):
+      arg.value = '...'
+    elif is_operator(arg, '**'):
+      warnings.warn('No analog to f(**dargs) in CoffeeScript')
+    elif is_operator(arg, '='):
+      warnings.warn('No support yet for f(key=value)')
 
 def avoid_string_for_interpolation(node):
   assert is_string(node)
@@ -186,8 +205,10 @@ def recurse(node):
       avoid_string_for_interpolation(node)
 
   if isinstance(node, parso.python.tree.BaseNode):
-    ## Avoid spaces before function and arguments in function call
     if is_call_trailer(node):
+      ## Process *args
+      fix_call_trailer(node)
+      ## Avoid spaces before function and arguments in function call
       node.children[0].prefix = node.children[0].prefix.lstrip()
 
     if node.type == 'print_stmt':
@@ -214,12 +235,13 @@ def recurse(node):
          is_string(node.children[0]) and \
          is_method_trailer(node.children[1], 'format') and \
          is_call_trailer(node.children[2]):
+        fix_call_trailer(node.children[2])
         args = split_call_trailer(node.children[2])
         count = -1
         def arg(match):
           nonlocal count
           count += 1
-          return '#{' + recurse(args[count]).lstrip() + '}'
+          return '#{' + recurse_list(args[count]).lstrip() + '}'
         prepare_string_for_interpolation(node.children[0])
         node.children[0] = CoffeeScript(
           re.sub(r'{}', arg, node.children[0].value),
@@ -235,7 +257,7 @@ def recurse(node):
 
         if function == 'range':
           prefix = node.children[0].prefix
-          args = tuple(recurse(arg).lstrip() for arg in args)
+          args = tuple(recurse_list(arg).lstrip() for arg in args)
           if len(args) == 1:
             r = CoffeeScript(prefix + '[0...%s]' % args[0], '[')
           elif len(args) == 2:
@@ -249,6 +271,9 @@ def recurse(node):
           if function == 'str' and len(args) == 0: # str()
             r = "''"
           elif len(args) == 1: # str(x) or related
+            if len(args[0]) != 1:
+              warnings.warn('Unrecognized argument to %s: %s' %
+                (function, args[0]))
             if function == 'str':
               base = ''
             elif function == 'bin':
@@ -258,7 +283,7 @@ def recurse(node):
             elif function == 'hex':
               base = 16
             r = CoffeeScript(node.children[0].prefix +
-                  maybe_paren(args[0], '.') +
+                  maybe_paren(args[0][0], '.') +
                   '.toString(%s)' % base, '.')
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
@@ -291,10 +316,13 @@ def recurse(node):
   if isinstance(node, parso.python.tree.Leaf):
     s += node.value
   elif isinstance(node, parso.python.tree.BaseNode):
-    s += ''.join(map(recurse, node.children))
+    s += recurse_list(node.children)
   else:
     s += str(node)
   return s
+
+def recurse_list(x):
+  return ''.join(map(recurse, x))
 
 argparser = argparse.ArgumentParser(
   description="Attempt to convert Python code into CoffeeScript")

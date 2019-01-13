@@ -11,6 +11,7 @@ L = []
 for item in range(2, 17, 3):
   L.append (lambda: item)
   L.append (lambda item=item: item)
+max(L) == max(*L)
 while True:
   item = f()
   if item:
