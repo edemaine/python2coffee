@@ -195,6 +195,19 @@ def recurse(node):
       if is_operator(node.children[-1], ','):
         warnings.warn('No known analog of print with comma to prevent newline')
 
+    elif node.type == 'lambdef':
+      assert is_keyword(node.children[0], 'lambda')
+      if node.children[1].type == 'param':
+        node.children[0].value = '('
+        node.children[1].children[0].prefix = \
+          node.children[1].children[0].prefix.lstrip()
+        assert is_operator(node.children[2], ':')
+        node.children[2].value = ') =>'
+      else:
+        assert is_operator(node.children[1], ':')
+        node.children[0].value = '() =>'
+        del node.children[1]
+
     elif node.type == 'power':
       ## Literal string with format method immediately applied
       if len(node.children) >= 3 and \

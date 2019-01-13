@@ -9,7 +9,8 @@ for item in range(2, 17):
   print str(item), '->', hex(item + 1)
 L = []
 for item in range(2, 17, 3):
-  L.append (item)
+  L.append (lambda: item)
+  L.append (lambda item=item: item)
 while True:
   item = f()
   if item:
