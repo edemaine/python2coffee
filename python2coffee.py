@@ -303,7 +303,7 @@ def recurse(node):
         node.children[0].value = '() ->'
         del node.children[1]
 
-    elif node.type == 'power':
+    elif node.type in ['atom_expr', 'power']:
       ## Literal string with format method immediately applied
       if len(node.children) >= 3 and \
          is_string(node.children[0]) and \
@@ -322,9 +322,9 @@ def recurse(node):
           'leaf', node.children[0].prefix)
         node.children[1:3] = []
 
+      ## Function call, possibly built-in
       elif len(node.children) >= 2 and is_name(node.children[0]) and \
            is_call_trailer(node.children[1]):
-        ## Function call, possibly built-in
         function = node.children[0].value
         args = split_call_trailer(node.children[1])
         r = None
@@ -365,7 +365,7 @@ def recurse(node):
         if r is not None:
           node.children[:2] = [r]
 
-      # this.x -> @x
+      ## this.x -> @x
       elif len(node.children) >= 2 and is_name(node.children[0], 'this') and \
            is_method_trailer(node.children[1]):
         if parso.tree.search_ancestor(node, 'classdef'):
