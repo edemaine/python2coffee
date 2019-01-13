@@ -393,6 +393,10 @@ def recurse(node):
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
+        elif function in ['int', 'float']:
+          assert_simple_args()
+          node.children[0].value = 'parse' + function.capitalize()
+
         elif function == 'ord':
           assert_simple_args()
           if len(args) == 1:
