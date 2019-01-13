@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import re, warnings
+import argparse, os, re, warnings
 import parso, parso.python.tree
 
 def is_node(node, type):
@@ -253,26 +253,25 @@ def recurse(node):
     s += str(node)
   return s
 
-#tree = parso.parse(open('Bibtex.py', 'r').read(), version='2.7')
-tree = parso.parse('''\
-'# Hello {}, your age is {}'.format(name, age)
-### This is a comment
-for item in range(17): # up to 16
-  print item if item % 2 == 1 else item/2
-for item in range(2, 17):
-  print str(item), 'eh?'
-for item in range(2, 17, 3):
-  print hex(item + 1)
-while True:
-  item = f()
-  if item:
-    print item
-  elif forever:
-    continue
-  else:
-    break
-''', version='2.7')
+argparser = argparse.ArgumentParser(
+  description="Attempt to convert Python code into CoffeeScript")
+argparser.add_argument('-p', '--python', metavar='N.N',
+  dest='python_version', default='3.6', help='Python version (e.g. 2.7)')
+argparser.add_argument('filenames', metavar='filename.py', type=str,
+  nargs='+', help='Python code to convert into filename.coffee')
 
-dump_tree(tree)
-print('==> CoffeeScript:')
-print(recurse(tree))
+def main():
+  args = argparser.parse_args()
+  for filename in args.filenames:
+    print(filename)
+    if filename.endswith('.coffee'): continue  ## avoid overwrite
+    py = open(filename, 'r').read()
+    tree = parso.parse(py, version=args.python_version)
+    dump_tree(tree)
+    csname = os.path.splitext(filename)[0] + '.coffee'
+    print('==>', csname)
+    cs = recurse(tree)
+    with open(csname, 'w') as csfile:
+      csfile.write(cs)
+
+if __name__ == '__main__': main()
