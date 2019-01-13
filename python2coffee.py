@@ -17,7 +17,7 @@ def is_string(node):
 def is_method_trailer(node, method = None):
   return node.type == 'trailer' and len(node.children) == 2 and \
     is_operator(node.children[0], '.') and \
-    (method is None or is_name(node.children[1], method))
+    is_name(node.children[1], method)
 
 def is_call_trailer(node):
   return node.type == 'trailer' and \
@@ -144,6 +144,10 @@ def maybe_paren(node, op):
     s = '(' + s + ')'
   return s
 
+method_mapping = {
+  'append': 'push',
+}
+
 def dump_tree(node, level = 0):
   if hasattr(node, 'prefix'):
     prefix = 'prefix=' + repr(node.prefix)
@@ -192,6 +196,7 @@ def recurse(node):
         warnings.warn('No known analog of print with comma to prevent newline')
 
     elif node.type == 'power':
+      ## Literal string with format method immediately applied
       if len(node.children) >= 3 and \
          is_string(node.children[0]) and \
          is_method_trailer(node.children[1], 'format') and \
@@ -245,6 +250,11 @@ def recurse(node):
 
         if r is not None:
           node.children[:2] = [r]
+
+      ## Method name mapping
+      for child in node.children:
+        if is_method_trailer(child) and child.children[1].value in method_mapping:
+          child.children[1].value = method_mapping[child.children[1].value]
 
     elif node.type in ['for_stmt', 'while_stmt', 'if_stmt']:
       for i, child in reversed(list(enumerate(node.children))):
