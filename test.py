@@ -1,4 +1,4 @@
-# Python 2.7 code
+# Python 2.7 code: run with python2coffee.py -p 2 test.py
 '###'
 "###"
 '# Hello {}, your age is {}'.format(name, age)
@@ -21,6 +21,7 @@ for item in range(2, 17, 3):
   L.append (lambda: item)
   L.append (lambda item=item: item)
 max(L) == max(*L)
+[item ** 2 for item in range(2, 17, 3)]
 def mysum(initial, *args):
   this = initial
   for arg in args:

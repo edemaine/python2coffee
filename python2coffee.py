@@ -371,7 +371,10 @@ def recurse(node):
           elif len(args) == 2:
             r = CoffeeScript('[%s...%s]' % args, '[', prefix)
           elif len(args) == 3:
-            r = CoffeeScript('(_i for _i in [%s...%s] by %s)' % args, '(', prefix)
+            if node.parent and node.parent.type in ['for_stmt', 'comp_for']:
+              r = CoffeeScript('[%s...%s] by %s' % args, '[', prefix)
+            else:
+              r = CoffeeScript('(_i for _i in [%s...%s] by %s)' % args, '(', prefix)
           else:
             warnings.warn('range with %d args' % len(args))
 
@@ -457,23 +460,6 @@ def recurse(node):
           child.value = 'else if'
         elif is_keyword(child, 'else') and node.type != 'if_stmt':
           warnings.warn('No support for else clause in %s' % node.type)
-
-      if node.type == 'for_stmt' and len(node.children) >= 3:
-        it = node.children[3]
-        if it.type in ['atom_expr', 'power'] and len(it.children) == 2 and \
-           is_name(it.children[0], 'range') and is_call_trailer(it.children[1]):
-          ## for ... in range(...)
-          args = split_call_trailer(it.children[1])
-          if len(args) == 3:
-            ## Handle 3-argument range (only) specially in for loop;
-            ## here we can use 'by' directly instead of building an array.
-            #assert_simple_args()
-            for arg in args:
-              if len(arg) != 1:
-                warnings.warn('Unrecognized argument to range: %s' % arg)
-            args = tuple(recurse(arg[0]).lstrip() for arg in args)
-            node.children[3] = CoffeeScript('[%s...%s] by %s' % args, '[',
-              it.children[0].prefix)
 
       if node.type == 'while_stmt' and is_true(node.children[1]):
         node.children[0].value = 'loop'

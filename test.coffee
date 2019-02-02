@@ -1,4 +1,4 @@
-# Python 2.7 code
+# Python 2.7 code: run with python2coffee.py -p 2 test.py
 '###'
 "\#\#\#"
 "\# Hello #{name}, your age is #{age}"
@@ -21,6 +21,7 @@ for item in [2...17] by 3
   L.push(() -> item)
   L.push((item=item) -> item)
 max(L) == max(...L)
+[item ** 2 for item in [2...17] by 3]
 mysum = (initial, ...args) ->
   _this = initial
   for arg in args
