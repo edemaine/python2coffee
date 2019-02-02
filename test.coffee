@@ -10,7 +10,7 @@ for item in [0...17] # up to 16
 for item in [2...17]
   console.log item.toString(), '->', (item + 1).toString(16)
 parseInt('123').toString() == '123'
-parseInt(123.toString()) == 123
+parseInt((123).toString()) == 123
 String.fromCharCode(27).charCodeAt() == 27
 String.fromCharCode('A'.charCodeAt()) == 'A'
 a = [0...17]

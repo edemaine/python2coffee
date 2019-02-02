@@ -185,7 +185,8 @@ def top_op(root):
 def maybe_paren(node, op):
   s = recurse(node)
   node_op = top_op(node)
-  if precedence[node_op] < precedence[op]:
+  if precedence[node_op] < precedence[op] or \
+     (op == '.' and node.type == 'number' and '.' not in node.value):
     s = '(' + s + ')'
   return s
 
