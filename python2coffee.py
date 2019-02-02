@@ -309,13 +309,19 @@ def recurse(node):
       else:
         node.children[1:1] = [CoffeeScript(' = ', 'leaf')]
       fix_parameters(node.children[2])
+      ## Omit null arguments ()
+      if len(node.children[2].children) == 2:
+        del node.children[2]
+        space = ''
+      else:
+        space = ' '
       assert is_block(node.children[-1])
       assert is_operator(node.children[-2], ':')
       in_class = parso.tree.search_ancestor(node, 'classdef')
       if in_class and in_class is not node.parent.parent:
-        node.children[-2].value = ' =>'
+        node.children[-2].value = space + '=>'
       else:
-        node.children[-2].value = ' ->'
+        node.children[-2].value = space + '->'
 
     elif node.type == 'lambdef':
       assert is_keyword(node.children[0], 'lambda')
@@ -332,7 +338,7 @@ def recurse(node):
         node.children[2].value = ') ' + arrow
       else:
         assert is_operator(node.children[1], ':')
-        node.children[0].value = '() ' + arrow
+        node.children[0].value = arrow
         del node.children[1]
 
     elif node.type in ['atom_expr', 'power']:

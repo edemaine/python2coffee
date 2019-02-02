@@ -18,7 +18,7 @@ b = [2...17]
 c = (_i for _i in [2...17] by 3)
 L = []
 for item in [2...17] by 3
-  L.push(() -> item)
+  L.push(-> item)
   L.push((item=item) -> item)
 max(L) == max(...L)
 [item ** 2 for item in [2...17] by 3]
@@ -44,15 +44,15 @@ class Point
   translate: (dx, dy) ->
     @x += dx
     @y += dy
-  toString: () ->
+  toString: ->
     _this = @
     return "(#{@x}, #{@y})"
 class Accumulator
-  constructor: () ->
+  constructor: ->
     @value = 0
-  adder: () ->
+  adder: ->
     add = (x) =>
       @value += x
     return add
-  getter: () ->
-    return () => @value
+  getter: ->
+    return => @value
