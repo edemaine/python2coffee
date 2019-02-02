@@ -24,9 +24,17 @@ If your code is in Python 2, use the following instead:
 python2coffee.py -p 2 filename.py
 ```
 
+## Example
+
+[test.py](test.py) is a simple example of Python code reasonably supported by
+the converter, which results in [test.coffee](test.coffee).
+
 ## Features Supported So Far
 
 * Python 2 or 3 input
+* Comments
+  * Generally preserved in the output
+  * Close accidental comment blocks (`###`)
 * Built-ins
   * Escape `this` variable and CoffeeScript keyword `function`
   * `print` -> `console.log` (with warning about final comma in Python 2)
@@ -65,8 +73,6 @@ python2coffee.py -p 2 filename.py
   * `.rstrip` -> `.trimEnd`
 * Lists/arrays
   * `.append` -> `.push`
-* Comments
-  * Close accidental comment blocks (`###`)
 * Classes
   * `class` blocks
   * Automatic stripping of first `self` argument from methods
