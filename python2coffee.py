@@ -319,15 +319,20 @@ def recurse(node):
 
     elif node.type == 'lambdef':
       assert is_keyword(node.children[0], 'lambda')
+      in_class = parso.tree.search_ancestor(node, 'classdef')
+      if in_class and in_class is not node.parent:
+        arrow = '=>'
+      else:
+        arrow = '->'
       if node.children[1].type == 'param':
         node.children[0].value = '('
         node.children[1].children[0].prefix = \
           node.children[1].children[0].prefix.lstrip()
         assert is_operator(node.children[2], ':')
-        node.children[2].value = ') ->'
+        node.children[2].value = ') ' + arrow
       else:
         assert is_operator(node.children[1], ':')
-        node.children[0].value = '() ->'
+        node.children[0].value = '() ' + arrow
         del node.children[1]
 
     elif node.type in ['atom_expr', 'power']:

@@ -54,3 +54,5 @@ class Accumulator
     add = (x) =>
       @value += x
     return add
+  getter: () ->
+    return () => @value

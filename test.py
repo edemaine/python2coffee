@@ -54,3 +54,5 @@ class Accumulator:
     def add(x):
       self.value += x
     return add
+  def getter(self):
+    return lambda: self.value
