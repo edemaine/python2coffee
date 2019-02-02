@@ -55,6 +55,8 @@ the converter, which results in [test.coffee](test.coffee).
 * Functions
   * `def` and `lambda`
   * `*args` -> `...args` in function definition and function call
+  * Add `null` default return value (for implicit `return None`),
+    and remove final `return` keyword (unnecessary in CoffeeScript).
   * Remove spaces between function and arguments in function call
 * Booleans
   * `True` -> `true`

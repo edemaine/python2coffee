@@ -26,7 +26,7 @@ mysum = (initial, ...args) ->
   _this = initial
   for arg in args
     _this += arg
-  return _this
+  _this
 loop
   item = f()
   if item
@@ -41,18 +41,23 @@ class Point
   constructor: (x, y) ->
     @x = x
     @y = y
+    null
   translate: (dx, dy) ->
     @x += dx
     @y += dy
+    null
   toString: ->
     _this = @
-    return "(#{@x}, #{@y})"
+    "(#{@x}, #{@y})"
 class Accumulator
   constructor: ->
     @value = 0
+    null
   adder: ->
     add = (x) =>
       @value += x
-    return add
+      null
+    add
   getter: ->
-    return => @value
+    => @value
+  get = (self) -> self.value

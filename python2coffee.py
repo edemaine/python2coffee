@@ -315,7 +315,17 @@ def recurse(node):
         space = ''
       else:
         space = ' '
-      assert is_block(node.children[-1])
+      block = node.children[-1]
+      assert is_block(block)
+      if block.children[-1].type == 'simple_stmt' and \
+         block.children[-1].children[0].type == 'return_stmt':
+        # Remove final 'return'
+        block.children[-1].children[0].children[0].value = ''
+        block.children[-1].children[0].children[1].get_first_leaf().prefix = ''
+      else:
+        # If no final return (implicit 'return None'), return 'null' instead
+        block.children.append(CoffeeScript('null\n', 'leaf',
+          block.children[-1].get_first_leaf().prefix))
       assert is_operator(node.children[-2], ':')
       in_class = parso.tree.search_ancestor(node, 'classdef')
       if in_class and in_class is not node.parent.parent:
@@ -326,7 +336,7 @@ def recurse(node):
     elif node.type == 'lambdef':
       assert is_keyword(node.children[0], 'lambda')
       in_class = parso.tree.search_ancestor(node, 'classdef')
-      if in_class and in_class is not node.parent:
+      if in_class and in_class is not node.parent.parent.parent.parent:
         arrow = '=>'
       else:
         arrow = '->'
