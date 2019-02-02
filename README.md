@@ -1,4 +1,4 @@
-# Automatic Python -> CoffeeScript conversion
+# Automatic Python -> CoffeeScript (rough) conversion
 
 This project is a rough experiment to see how easily/effectively we can
 automatically convert Python code into equivalent CoffeeScript code,
