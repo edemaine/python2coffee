@@ -74,3 +74,18 @@ python2coffee.py -p 2 filename.py
   * `__init__` -> `constructor`
   * `__str__` -> `toString`
   * `=>` for closures within methods, `->` for all other functions
+
+## Related Work
+
+This project is based on the excellent
+[parso](https://parso.readthedocs.io/en/latest/) Python parser
+(which must be [installed](https://parso.readthedocs.io/en/latest/docs/installation.html) first).
+
+This is not the first attempt to automatically convert Python to CoffeeScript.
+
+* [python-to-coffeescript](https://github.com/edreamleo/python-to-coffeescript)
+  translates Python syntax to CoffeeScript **syntax**, but does not try to
+  preserve semantics.
+  It's based on a [mix of `ast` parsing and tokenization](https://github.com/edreamleo/python-to-coffeescript/blob/master/theory.md) to preserve comments etc.
+* [Transcrypt](http://www.transcrypt.org/) converts Python to **JavaScript**.
+* [pyscript](https://github.com/avinoamr/pyscript/) may also convert Python to **JavaScript**.
