@@ -27,6 +27,12 @@ def mysum(initial, *args):
   for arg in args:
     this += arg
   return this
+def oneline(x): x += 5; return x
+def oneline2(x): x += 5
+def twoline(x):
+  x += 5; return x
+def twoline2(x):
+  x += 5
 while True:
   item = f()
   if item:

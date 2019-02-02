@@ -27,6 +27,13 @@ mysum = (initial, ...args) ->
   for arg in args
     _this += arg
   _this
+oneline = (x) -> x += 5; x
+oneline2 = (x) -> x += 5; null
+twoline = (x) ->
+  x += 5; x
+twoline2 = (x) ->
+  x += 5
+  null
 loop
   item = f()
   if item

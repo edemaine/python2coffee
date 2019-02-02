@@ -120,6 +120,36 @@ def terminate_comments(node):
   node.prefix = re.sub(r'^\s*###(?!#)(\s*).*$',
     sub, node.prefix, re.MULTILINE)
 
+def block_ends_with_return(block):
+  ## Returns a list of "final" return_stmt's,
+  ## or None if the block ends with something else.
+  if block.type == 'simple_stmt':
+    last = block
+  else:
+    last = block.children[-1]
+  if last.type == 'simple_stmt':
+    ## For simple statements, check that the last in the semicolon-separated
+    ## sequence is a return.
+    for child in reversed(last.children):
+      if is_newline(child) or is_operator(child, ';'):
+        continue
+      elif child.type == 'return_stmt':
+        return [child]
+      else:
+        return
+  elif last.type == 'if_stmt':
+    ## For if statements, recursively check the last in each block.
+    returns = []
+    for child in last.children:
+      if is_block(child):
+        child_returns = block_ends_with_return(child)
+        if not child_returns: return
+        returns.extend(child_returns)
+    return returns
+  else:
+    print(last, ':')
+    return
+
 # https://docs.python.org/3/reference/expressions.html#operator-precedence
 precedence = {
   'lambda': 0,
@@ -317,15 +347,20 @@ def recurse(node):
         space = ' '
       block = node.children[-1]
       assert is_block(block)
-      if block.children[-1].type == 'simple_stmt' and \
-         block.children[-1].children[0].type == 'return_stmt':
-        # Remove final 'return'
-        block.children[-1].children[0].children[0].value = ''
-        block.children[-1].children[0].children[1].get_first_leaf().prefix = ''
+      returns = block_ends_with_return(block)
+      if returns:
+        # Remove final 'return' keywords, and space that follows
+        for return_stmt in returns:
+          assert is_keyword(return_stmt.children[0], 'return')
+          return_stmt.children[0].value = ''
+          return_stmt.children[1].get_first_leaf().prefix = ''
       else:
         # If no final return (implicit 'return None'), return 'null' instead
-        block.children.append(CoffeeScript('null\n', 'leaf',
-          block.children[-1].get_first_leaf().prefix))
+        if block.type == 'simple_stmt': # one-line def
+          block.children[-1:-1] = [CoffeeScript('; null', 'leaf')]
+        else:
+          block.children.append(CoffeeScript('null\n', 'leaf',
+            block.children[-1].get_first_leaf().prefix))
       assert is_operator(node.children[-2], ':')
       in_class = parso.tree.search_ancestor(node, 'classdef')
       if in_class and in_class is not node.parent.parent:
