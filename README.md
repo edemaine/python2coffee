@@ -4,7 +4,8 @@ This project is a rough experiment to see how easily/effectively we can
 automatically convert Python code into equivalent CoffeeScript code,
 inspired by the
 [CoffeeScript for Python Programmers guide](https://edemaine.github.io/coffeescript-for-python/).
-It's still very much a work-in-progress, is not feature complete,
+The goal is to preserve the existing code's indentation style, comments, etc.,
+but it's still very much a work-in-progress, is not feature complete,
 and may incorrectly convert some features, so please use with care.
 Hopefully, if you have some Python code to convert to CoffeeScript,
 this tool will provide a useful starting point, but you will almost certainly
