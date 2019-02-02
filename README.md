@@ -39,7 +39,7 @@ the converter, which results in [test.coffee](test.coffee).
   * Escape `this` variable and CoffeeScript keyword `function`
   * `print` -> `console.log` (with warning about final comma in Python 2)
   * `assert` -> `console.assert`
-  * `range` (1, 2, or 3 arguments)
+  * `range` (1, 2, or 3 arguments, with especially clean code in for loops)
   * `str`, `bin`, `oct`, `hex` -> `.toString`
   * `int`, `float` -> `parseInt`, `parseFloat`
   * `ord` -> `.charCodeAt`

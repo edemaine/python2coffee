@@ -13,8 +13,11 @@ parseInt('123').toString() == '123'
 parseInt(123.toString()) == 123
 String.fromCharCode(27).charCodeAt() == 27
 String.fromCharCode('A'.charCodeAt()) == 'A'
+a = [0...17]
+b = [2...17]
+c = (_i for _i in [2...17] by 3)
 L = []
-for item in (_i for _i in [2...17] by 3)
+for item in [2...17] by 3
   L.push(() -> item)
   L.push((item=item) -> item)
 max(L) == max(...L)

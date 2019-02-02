@@ -13,6 +13,9 @@ str(int('123')) == '123'
 int(str(123)) == 123
 ord(chr(27)) == 27
 chr(ord('A')) == 'A'
+a = range(17)
+b = range(2, 17)
+c = range(2, 17, 3)
 L = []
 for item in range(2, 17, 3):
   L.append (lambda: item)
