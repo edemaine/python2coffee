@@ -29,6 +29,10 @@ def is_method_trailer(node, method = None):
     is_operator(node.children[0], '.') and \
     is_name(node.children[1], method)
 
+def set_children_parents(node):
+  for child in node.children:
+    child.parent = node
+
 def is_call_trailer(node):
   return node.type == 'trailer' and \
     is_operator(node.children[0], '(') and \
@@ -49,6 +53,13 @@ def split_call_trailer(node):
     return groups
   else:
     return [node.children[1:-1]]
+def force_call_trailer_arglist(node):
+  assert is_call_trailer(node)
+  if node.children[1].type != 'arglist':
+    node.children[1:-1] = \
+      [parso.python.tree.Node('arglist', node.children[1:-1])]
+    node.children[1].parent = node
+    set_children_parents(node.children[1])
 def fix_call_trailer(node):
   assert is_call_trailer(node)
   args = node.children[1]
@@ -505,6 +516,36 @@ def recurse(node):
       for child in node.children:
         if is_method_trailer(child) and child.children[1].value in method_mapping:
           child.children[1].value = method_mapping[child.children[1].value]
+
+      ## .extend(x) -> .push(...x)
+      for i in range(len(node.children)-1):
+        if is_method_trailer(node.children[i]) and \
+           is_call_trailer(node.children[i+1]) and \
+           node.children[i].children[1].value == 'extend':
+          args = split_call_trailer(node.children[i+1])
+          if len(args) != 1:
+            warnings.warn('%d parameters passed to .extend()' % len(args))
+            continue
+          if is_operator(args[0][0], '*'):
+            warnings.warn('*args passed to .extend()')
+            continue
+          force_call_trailer_arglist(node.children[i+1])
+          if len(args[0]) == 1 and args[0][0].type == 'atom' and \
+             is_operator(args[0][0].children[0], '[') and \
+             is_node(args[0][0].children[1], 'testlist_comp') and \
+             is_operator(args[0][0].children[2], ']') and \
+             not any(is_node(child, 'comp_for')
+                     for child in args[0][0].children[1].children):
+            ## .extend([1, 2]) -> .push(1, 2)
+            node.children[i+1].children[1].children[0].children = \
+              node.children[i+1].children[1].children[0].children[1].children
+            set_children_parents(node.children[i+1].children[1])
+            print(node.children[i+1])
+          else:
+            node.children[i+1].children[1].children.insert(0,
+              parso.python.tree.Operator('*',
+                node.children[i+1].children[1].children[0].start_pos))
+          node.children[i].children[1].value = 'push'
 
     elif node.type in ['for_stmt', 'while_stmt', 'if_stmt']:
       assert is_keyword(node.children[0], node.type.split('_', 1)[0])

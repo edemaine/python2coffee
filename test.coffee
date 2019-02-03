@@ -20,6 +20,9 @@ L = []
 for item in [2...17] by 3
   L.push(-> item)
   L.push((item=item) -> item)
+  L.push(item, item+1)
+L.push(...L)
+L.push(...[x**2 for x in L])
 max(L) == max(...L)
 [item ** 2 for item in [2...17] by 3]
 mysum = (initial, ...args) ->

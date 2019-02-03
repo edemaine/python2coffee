@@ -75,6 +75,8 @@ the converter, which results in [test.coffee](test.coffee).
   * `.rstrip` -> `.trimEnd`
 * Lists/arrays
   * `.append` -> `.push`
+  * `.extend(x)` -> `.push(...x)`
+  * `.extend([x, y])` -> `.push(x, y)`
 * Classes
   * `class` blocks
   * Automatic stripping of first `self` argument from methods

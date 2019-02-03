@@ -20,6 +20,9 @@ L = []
 for item in range(2, 17, 3):
   L.append (lambda: item)
   L.append (lambda item=item: item)
+  L.extend ([item, item+1])
+L.extend (L)
+L.extend ([x**2 for x in L])
 max(L) == max(*L)
 [item ** 2 for item in range(2, 17, 3)]
 def mysum(initial, *args):
