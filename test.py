@@ -36,6 +36,7 @@ def twoline(x):
   x += 5; return x
 def twoline2(x):
   x += 5
+def defaults(x = 5, y = None): pass
 while True:
   item = f()
   if item:

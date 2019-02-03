@@ -158,7 +158,6 @@ def block_ends_with_return(block):
         returns.extend(child_returns)
     return returns
   else:
-    print(last, ':')
     return
 
 # https://docs.python.org/3/reference/expressions.html#operator-precedence
@@ -302,6 +301,8 @@ def recurse(node):
     elif node.type == 'name':
       if is_name(node, 'this'): # Now-unescaped this must be from class method
         node.value = '@'
+      elif is_name(node, 'None'):
+        node.value = 'null'
 
     if is_true(node):
       node.value = 'true'
@@ -540,7 +541,6 @@ def recurse(node):
             node.children[i+1].children[1].children[0].children = \
               node.children[i+1].children[1].children[0].children[1].children
             set_children_parents(node.children[i+1].children[1])
-            print(node.children[i+1])
           else:
             node.children[i+1].children[1].children.insert(0,
               parso.python.tree.Operator('*',

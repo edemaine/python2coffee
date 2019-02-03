@@ -37,6 +37,7 @@ twoline = (x) ->
 twoline2 = (x) ->
   x += 5
   null
+defaults = (x = 5, y = null) -> pass; null
 loop
   item = f()
   if item

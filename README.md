@@ -37,6 +37,7 @@ the converter, which results in [test.coffee](test.coffee).
   * Close accidental comment blocks (`###`)
 * Built-ins
   * Escape `this` variable and CoffeeScript keyword `function`
+  * `None` -> `null`
   * `print` -> `console.log` (with warning about final comma in Python 2)
   * `assert` -> `console.assert`
   * `range` (1, 2, or 3 arguments, with especially clean code in for loops)
