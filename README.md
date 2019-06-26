@@ -101,3 +101,4 @@ This is not the first attempt to automatically convert Python to CoffeeScript.
   It's based on a [mix of `ast` parsing and tokenization](https://github.com/edreamleo/python-to-coffeescript/blob/master/theory.md) to preserve comments etc.
 * [Transcrypt](http://www.transcrypt.org/) converts Python to **JavaScript**.
 * [pyscript](https://github.com/avinoamr/pyscript/) may also convert Python to **JavaScript**.
+* [Rapydscript (NG)](https://github.com/kovidgoyal/rapydscript-ng) is a language similar to Python that compiles directly to JavaScript (like CoffeeScript).
