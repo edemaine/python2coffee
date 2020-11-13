@@ -625,13 +625,16 @@ def main():
   for filename in args.filenames:
     print(filename)
     if filename.endswith('.coffee'): continue  ## avoid overwrite
-    py = open(filename, 'r').read()
+    with open(filename, 'r') as pyfile:
+      py = pyfile.read()
+      newline = pyfile.newlines
+    if isinstance(newline, tuple): newline = newline[0]
     tree = parso.parse(py, version=args.python_version)
     dump_tree(tree)
     csname = os.path.splitext(filename)[0] + '.coffee'
     print('==>', csname)
     cs = convert_tree(tree)
-    with open(csname, 'w') as csfile:
+    with open(csname, 'w', newline=newline) as csfile:
       csfile.write(cs)
 
 if __name__ == '__main__': main()
