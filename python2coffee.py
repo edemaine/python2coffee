@@ -625,7 +625,7 @@ def main():
   for filename in args.filenames:
     print(filename)
     if filename.endswith('.coffee'): continue  ## avoid overwrite
-    with open(filename, 'r') as pyfile:
+    with open(filename, 'r', encoding='utf8') as pyfile:
       py = pyfile.read()
       newline = pyfile.newlines
     if isinstance(newline, tuple): newline = newline[0]
@@ -634,7 +634,7 @@ def main():
     csname = os.path.splitext(filename)[0] + '.coffee'
     print('==>', csname)
     cs = convert_tree(tree)
-    with open(csname, 'w', newline=newline) as csfile:
+    with open(csname, 'w', newline=newline, encoding='utf8') as csfile:
       csfile.write(cs)
 
 if __name__ == '__main__': main()
