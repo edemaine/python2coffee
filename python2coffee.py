@@ -440,7 +440,7 @@ def recurse(node):
           elif len(args) == 2:
             r = CoffeeScript('[%s...%s]' % args, '[', prefix)
           elif len(args) == 3:
-            if node.parent and node.parent.type in ['for_stmt', 'comp_for']:
+            if node.parent and node.parent.type in ['for_stmt', 'comp_for', 'sync_comp_for']:
               r = CoffeeScript('[%s...%s] by %s' % args, '[', prefix)
             else:
               r = CoffeeScript('(_i for _i in [%s...%s] by %s)' % args, '(', prefix)
@@ -535,7 +535,7 @@ def recurse(node):
              is_operator(args[0][0].children[0], '[') and \
              is_node(args[0][0].children[1], 'testlist_comp') and \
              is_operator(args[0][0].children[2], ']') and \
-             not any(is_node(child, 'comp_for')
+             not any(child.type in ['comp_for', 'sync_comp_for']
                      for child in args[0][0].children[1].children):
             ## .extend([1, 2]) -> .push(1, 2)
             node.children[i+1].children[1].children[0].children = \
