@@ -74,6 +74,8 @@ the converter, which results in [test.coffee](test.coffee).
   * `.strip` -> `.trim`
   * `.lstrip` -> `.trimStart`
   * `.rstrip` -> `.trimEnd`
+* Regular expressions
+  * `re.sub` partial support
 * Lists/arrays
   * `.append` -> `.push`
   * `.extend(x)` -> `.push(...x)`

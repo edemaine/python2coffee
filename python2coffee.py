@@ -59,6 +59,25 @@ def split_call_trailer(node):
   else:
     assert len(node.children) == 3
     return [node.children[1]]
+def replace_arg_in_call_trailer(node, index, new = None):
+  force_call_trailer_arglist(node)
+  args = node.children[1]
+  argIndex = 0
+  start = 0
+  end = len(args.children)
+  for i, arg in enumerate(args.children):
+    if is_operator(arg, ','):
+      if argIndex == index:
+        end = i
+        if argIndex == 0 and new is None: end += 1
+        break
+      argIndex += 1
+      if argIndex == index:
+        start = i + (new is not None)
+  if new is None:
+    del args.children[start:end]
+  else:
+    args.children[start:end] = [new]
 # ensure not keyword argument, *args, **dargs
 def assert_simple_arg(arg, function):
   if is_node(arg, 'argument'):
@@ -67,6 +86,15 @@ def assert_simple_arg(arg, function):
 def assert_simple_args(args, function):
   for arg in args:
     assert_simple_arg(arg, function)
+def find_arg(args, keyword, index):
+  for i, arg in enumerate(args):
+    if is_node(arg, 'argument') and len(arg.children) >= 3 and \
+       is_operator(arg.children[1], '=') and is_name(arg.children[0], keyword):
+      assert len(arg.children) == 3
+      return i, arg.children[2]
+  if index < len(args):
+    return index, args[index]
+  return None, None
 def force_call_trailer_arglist(node):
   assert is_call_trailer(node)
   if node.children[1].type != 'arglist':
@@ -113,7 +141,7 @@ def avoid_string_for_interpolation(node):
 
 def prepare_string_for_interpolation(node):
   assert is_string(node)
-  # not handling prefix like r'...'
+  # xxx not handling prefix like r'...'
   if node.value.startswith("'''"):
     assert node.value.endswith("'''")
     node.value = re.sub(r'"""', '"\\"\\"', node.value)
@@ -123,6 +151,39 @@ def prepare_string_for_interpolation(node):
     node.value = re.sub(r'"', '\\"', node.value)
     node.value = '"' + node.value[1:-1] + '"'
   avoid_string_for_interpolation(node)
+
+re_flags_map = {
+  'IGNORECASE': 'i', 'I': 'i',
+  'MULTILINE': 'm', 'M': 'm',
+  'DOTALL': 's', 'S': 's'
+}
+def string_to_regexp(node, flags):
+  assert is_string(node)
+  regexp_backrefs(node)
+  s = node.value
+  match = re.match(r'^([a-zA-Z]*)("""|\'\'\'|"|\')(.*)(\2)$', s, re.DOTALL)
+  assert match
+  s = '/' + match.group(3) + '/'
+  if flags:
+    # xxx handle multiple flags
+    if is_node(flags, 'atom_expr') and len(flags.children) == 2 and \
+       is_name(flags.children[0], 're') and \
+       is_method_trailer(flags.children[1]):
+      flag = flags.children[1].children[1].value
+      if flag in re_flags_map:
+        s += re_flags_map[flag]
+      elif flag in ['VERBOSE', 'X']:
+        s = '//' + s + '//'
+      else:
+        warnings.warn('Regexp flag unsupported in CoffeeScript: %s' % flag)
+    else:
+      warnings.warn('Unrecognized regexp flags: %s' % flags)
+  return CoffeeScript(s, 'leaf')
+def regexp_backrefs(node):
+  assert is_string(node)
+  node.value = re.sub(r'(?<!\\)(\\0|\\g<0>)', r'$&', node.value)
+  node.value = re.sub(r'(?<!\\)\\(\d+)', r'$\1', node.value)
+  node.value = re.sub(r'(?<!\\)\\g<(\d+)>', r'$\1', node.value)
 
 def terminate_comments(node):
   '''Fix ### (not shorter or longer) to not go beyond the line'''
@@ -518,6 +579,40 @@ def recurse(node):
         if parso.tree.search_ancestor(node, 'classdef'):
           node.children[0].value = '@'
           del node.children[1].children[0]
+
+      ## Module function call
+      elif len(node.children) >= 3 and is_name(node.children[0]) and \
+           is_method_trailer(node.children[1]) and \
+           is_call_trailer(node.children[2]):
+        module = node.children[0].value
+        prefix = node.children[0].prefix
+        method = node.children[1].children[1].value
+        function = module + '.' + method
+        args = split_call_trailer(node.children[2])
+        if module == 're':
+          if method == 'sub':
+            if len(args) >= 3:
+              assert_simple_arg(args[0], function)
+              assert_simple_arg(args[1], function)
+              assert_simple_arg(args[2], function)
+              flags_i, flags = find_arg(args, 'flags', 4)
+              if flags is not None:
+                replace_arg_in_call_trailer(node.children[2], flags_i)
+              # re.sub -> string.replace
+              node.children[1].children[1].value = 'replace'
+              node.children[0] = \
+                CoffeeScript(maybe_paren(args[2], '.'), prefix)
+              replace_arg_in_call_trailer(node.children[2], 2)
+              # Regular expression first argument
+              if is_string(args[0]):
+                regexp = string_to_regexp(args[0], flags)
+                regexp.value += 'g'  # global replace
+                replace_arg_in_call_trailer(node.children[2], 0, regexp)
+              # String replacement
+              if is_string(args[1]):
+                regexp_backrefs(args[1])
+            else:
+              warnings.warn('%d parameters passed to re.sub()' % len(args))
 
       ## Method name mapping
       for child in node.children:
