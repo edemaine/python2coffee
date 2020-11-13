@@ -50,9 +50,23 @@ def split_call_trailer(node):
         groups[-1].append(arg)
     if not groups[-1]:
       groups.pop()
+    for i, group in enumerate(groups):
+      if len(group) == 1:
+        groups[i] = group[0]
+      else:
+        groups[i] = parso.python.tree.Node('argument', group)
     return groups
   else:
-    return [node.children[1:-1]]
+    assert len(node.children) == 3
+    return [node.children[1]]
+# ensure not keyword argument, *args, **dargs
+def assert_simple_arg(arg, function):
+  if is_node(arg, 'argument'):
+    warnings.warn('Unrecognized argument to %s: %s' %
+      (function, arg))
+def assert_simple_args(args, function):
+  for arg in args:
+    assert_simple_arg(arg, function)
 def force_call_trailer_arglist(node):
   assert is_call_trailer(node)
   if node.children[1].type != 'arglist':
@@ -410,7 +424,7 @@ def recurse(node):
         def arg(match):
           nonlocal count
           count += 1
-          return '#{' + recurse_list(args[count]).lstrip() + '}'
+          return '#{' + recurse(args[count]).lstrip() + '}'
         prepare_string_for_interpolation(node.children[0])
         node.children[0] = CoffeeScript(
           re.sub(r'{}', arg, node.children[0].value),
@@ -424,17 +438,9 @@ def recurse(node):
         prefix = node.children[0].prefix
         args = split_call_trailer(node.children[1])
         r = None
-        def assert_simple_arg(arg):
-          if len(arg) != 1:
-            warnings.warn('Unrecognized argument to %s: %s' %
-              (function, arg))
-        def assert_simple_args():
-          for arg in args:
-            assert_simple_arg(arg)
-
         if function == 'range':
-          assert_simple_args()
-          args = tuple(recurse(arg[0]).lstrip() for arg in args)
+          assert_simple_args(args, function)
+          args = tuple(recurse(arg).lstrip() for arg in args)
           if len(args) == 1:
             r = CoffeeScript('[0...%s]' % args[0], '[', prefix)
           elif len(args) == 2:
@@ -448,7 +454,7 @@ def recurse(node):
             warnings.warn('range with %d args' % len(args))
 
         elif function in ['str', 'bin', 'oct', 'hex']:
-          assert_simple_args()
+          assert_simple_args(args, function)
           if function == 'str' and len(args) == 0: # str()
             r = CoffeeScript("''", 'leaf')
           elif len(args) == 1: # str(x) or related
@@ -460,45 +466,45 @@ def recurse(node):
               base = 8
             elif function == 'hex':
               base = 16
-            r = CoffeeScript(maybe_paren(args[0][0], '.') +
+            r = CoffeeScript(maybe_paren(args[0], '.') +
                   '.toString(%s)' % base, '.', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
         elif function in ['int', 'float']:
-          assert_simple_args()
+          assert_simple_args(args, function)
           node.children[0].value = 'parse' + function.capitalize()
 
         elif function == 'ord':
-          assert_simple_args()
+          assert_simple_args(args, function)
           if len(args) == 1:
-            r = CoffeeScript(maybe_paren(args[0][0], '.') +
+            r = CoffeeScript(maybe_paren(args[0], '.') +
                   '.charCodeAt()', '.', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
         elif function == 'chr':
-          assert_simple_args()
+          assert_simple_args(args, function)
           if len(args) == 1:
             r = CoffeeScript('String.fromCharCode(%s)' %
-              recurse(args[0][0]), '.', prefix)
+              recurse(args[0]), '.', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
         elif function == 'isinstance':
-          assert_simple_args()
+          assert_simple_args(args, function)
           if len(args) == 2:
             r = CoffeeScript('%s instanceof %s' %
-              (maybe_paren(args[0][0], 'instanceof'),
-               maybe_paren(args[1][0], 'instanceof').lstrip()),
+              (maybe_paren(args[0], 'instanceof'),
+               maybe_paren(args[1], 'instanceof').lstrip()),
               'instanceof', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
 
         elif function == 'len':
-          assert_simple_args()
+          assert_simple_args(args, function)
           if len(args) == 1:
-            r = CoffeeScript('%s.length' % maybe_paren(args[0][0], '.'),
+            r = CoffeeScript('%s.length' % maybe_paren(args[0], '.'),
                   '.', prefix)
           else:
             warnings.warn('%s() with %d arguments' % (function, len(args)))
@@ -520,23 +526,22 @@ def recurse(node):
 
       ## .extend(x) -> .push(...x)
       for i in range(len(node.children)-1):
-        if is_method_trailer(node.children[i]) and \
-           is_call_trailer(node.children[i+1]) and \
-           node.children[i].children[1].value == 'extend':
+        if is_method_trailer(node.children[i], 'extend') and \
+           is_call_trailer(node.children[i+1]):
           args = split_call_trailer(node.children[i+1])
           if len(args) != 1:
             warnings.warn('%d parameters passed to .extend()' % len(args))
             continue
-          if is_operator(args[0][0], '*'):
+          if is_node(args[0], 'argument') and is_operator(args[0][0], '*'):
             warnings.warn('*args passed to .extend()')
             continue
           force_call_trailer_arglist(node.children[i+1])
-          if len(args[0]) == 1 and args[0][0].type == 'atom' and \
-             is_operator(args[0][0].children[0], '[') and \
-             is_node(args[0][0].children[1], 'testlist_comp') and \
-             is_operator(args[0][0].children[2], ']') and \
+          if is_node(args[0], 'atom') and \
+             is_operator(args[0].children[0], '[') and \
+             is_node(args[0].children[1], 'testlist_comp') and \
+             is_operator(args[0].children[2], ']') and \
              not any(child.type in ['comp_for', 'sync_comp_for']
-                     for child in args[0][0].children[1].children):
+                     for child in args[0].children[1].children):
             ## .extend([1, 2]) -> .push(1, 2)
             node.children[i+1].children[1].children[0].children = \
               node.children[i+1].children[1].children[0].children[1].children
