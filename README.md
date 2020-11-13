@@ -87,11 +87,18 @@ the converter, which results in [test.coffee](test.coffee).
   * `__str__` -> `toString`
   * `=>` for closures within methods, `->` for all other functions
 
-## Related Work
+## Installation
 
 This project is based on the excellent
-[parso](https://parso.readthedocs.io/en/latest/) Python parser
-(which must be [installed](https://parso.readthedocs.io/en/latest/docs/installation.html) first).
+[parso](https://parso.readthedocs.io/en/latest/) Python parser,
+which must first be
+[installed](https://parso.readthedocs.io/en/latest/docs/installation.html).
+If you want to convert Python 2 files, you should install parso version 0.7.1:
+```sh
+pip3 install parso==0.7.1
+```
+
+## Related Work
 
 This is not the first attempt to automatically convert Python to CoffeeScript.
 
