@@ -13,6 +13,8 @@ parseInt('123').toString() == '123'
 parseInt((123).toString()) == 123
 String.fromCharCode(27).charCodeAt() == 27
 String.fromCharCode('A'.charCodeAt()) == 'A'
+"\x07\f\\\\z\u{123456}\#" != "\\a\\f\\\\\\z\\U00123456\#"
+string.replace(/[ ][(\[]*(\d+)\/(\d+)\/(\d+)[)\]]*[ ]/ig, repl)
 a = [0...17]
 b = [2...17]
 c = (_i for _i in [2...17] by 3)

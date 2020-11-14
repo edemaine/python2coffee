@@ -128,41 +128,102 @@ def fix_parameters(node):
       elif is_operator(arg, '**'):
         warnings.warn('No analog to def(**dargs) in CoffeeScript')
 
+# Compare https://docs.python.org/3/reference/lexical_analysis.html#literals
+# to https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#Using_special_characters_in_strings
+escape_python_to_coffeescript = {
+  '\n': '', # continuing lines
+  '\\': r'\\',
+  "'": r"\'",
+  '"': r'\"',
+  'a': r'\x07', # ASCII BEL
+  'b': r'\b',
+  'f': r'\f',
+  'n': r'\n',
+  'r': r'\r',
+  't': r'\t',
+  'v': r'\v',
+}
+def escape_unescaped(match):
+  if len(match.group(1)) % 2 == 0:
+    return '\\' + match.group(0)
+  else:
+    return match.group(0)  # already escaped
 def parse_string(node):
   assert is_string(node)
   match = re.match(r'^([a-zA-Z]*)("""|\'\'\'|"|\')(.*)(\2)$',
     node.value, re.DOTALL)
   assert match
-  # xxx process content according to presense of r flag
-  return {
-    'flags': match.group(1),
+  string = {
+    'flags': match.group(1).lower(),
     'quote': match.group(2),
     'content': match.group(3),
   }
+  if 'r' not in string['flags']:
+    def replace(x):
+      if x.group(5):
+        if x.group(5) in escape_python_to_coffeescript:
+          return escape_python_to_coffeescript[x.group(5)]
+        else:
+          # Python '\z' parses as '\\z', while CoffeeScript '\z' parses as 'z'
+          return '\\' + x.group(0)
+      #elif x.group(1): #\...
+      #  return chr(int(x.group(2), 8))
+      #elif x.group(2): #\x..
+      #  return chr(int(x.group(3), 16))
+      #elif x.group(3): #\u....
+      #  return chr(int(x.group(4), 16))
+      elif x.group(4): #\U........
+        return '\\u{'+x.group(4).lstrip('0')+'}'
+      else:
+        return x.group(0)
+    string['content'] = re.sub(r'\\([0-9]{1,3})|\\x([0-9a-fA-F]{1,2})|\\u([0-9a-fA-F]{1,4})|\\U([0-9a-fA-F]{1,8})|\\(.)',
+      replace, string['content'])
+    quote_string_interpolation(string)
+  return string
 
-def avoid_string_for_interpolation(node):
-  assert is_string(node)
-  if re.search(r'''['"]''', node.value).group(0) == "'":
-    return # no need to escape '#' in single-quoted strings
-  def sub(match):
-    if len(match.group(1)) % 2 == 0:
-      return '\\' + match.group(0)
+coffeescript_string_escapes = {
+  '\0': r'\0',
+  '\b': r'\b',
+  '\f': r'\f',
+  '\n': r'\n',
+  '\r': r'\r',
+  '\t': r'\t',
+  '\v': r'\v',
+  '\\': r'\\',
+}
+def escape_raw_string(string):
+  if 'r' not in string['flags']: return
+  def escape(x):
+    if x.group(0) in coffeescript_string_escapes:
+      return coffeescript_string_escapes[x.group(0)]
     else:
-      return match.group(0)  # already escaped
-  node.value = re.sub(r'(\\*)#', sub, node.value)
+      return x.group(0)
+  string['content'] = re.sub(r'[\0\b\f\n\r\t\v\\]', escape, string['content'])
+  quote_string_interpolation(string)
 
-def prepare_string_for_interpolation(node):
-  assert is_string(node)
-  # xxx not handling prefix like r'...' -- use parse_string
-  if node.value.startswith("'''"):
-    assert node.value.endswith("'''")
-    node.value = re.sub(r'"""', '"\\"\\"', node.value)
-    node.value = '"""' + node.value[3:-3] + '"""'
-  elif node.value.startswith("'"):
-    assert node.value.endswith("'")
-    node.value = re.sub(r'"', '\\"', node.value)
-    node.value = '"' + node.value[1:-1] + '"'
-  avoid_string_for_interpolation(node)
+def quote_string_interpolation(string):
+  if string['quote'].startswith('"'):
+    string['content'] = re.sub(r'(\\*)#', escape_unescaped, string['content'])
+
+def unescape_escaped(match):
+  if len(match.group(1)) % 2 == 1:
+    return match.group(0)[1:]
+  else:
+    return match.group(0)
+def make_string_double_quoted(string):
+  if string['quote'].startswith('"'): return
+  string['quote'] = string['quote'].replace("'", '"')
+  # Drop unneeded \ from \'
+  string['content'] = re.sub(r"(\\*)'", unescape_escaped, string['content'])
+  if string['quote'] == '"""':
+    # Escape final "
+    string['content'] = re.sub(r'(\\*)"$', escape_unescaped, string['content'])
+    # Escape """
+    string['content'] = re.sub(r'"""', '"\\"\\"', string['content'])
+  else:
+    # Escape all "
+    string['content'] = re.sub(r'(\\*)"', escape_unescaped, string['content'])
+  quote_string_interpolation(string)
 
 re_flags_map = {
   'IGNORECASE': 'i', 'I': 'i',
@@ -173,11 +234,14 @@ def string_to_regexp(node, flags):
   assert is_string(node)
   regexp_backrefs(node)
   string = parse_string(node)
-  # xxx proper escaping
-  regexp = '/' + string['content'] + '/'
+  if 'r' in string['flags']:
+    string['content'] = re.sub(r'(\\*)/', escape_unescaped, string['content'])
+    regexp = '/' + string['content'] + '/'
+  else:
+    regexp = 'new RegExp(' + string['quote'] + string['content'] + string['quote'] + ')'
   if flags:
     # xxx handle multiple flags
-    if is_node(flags, 'atom_expr') and len(flags.children) == 2 and \
+    if flags.type in ['atom_expr', 'power'] and len(flags.children) == 2 and \
        is_name(flags.children[0], 're') and \
        is_method_trailer(flags.children[1]):
       flag = flags.children[1].children[1].value
@@ -189,7 +253,9 @@ def string_to_regexp(node, flags):
         warnings.warn('Regexp flag unsupported in CoffeeScript: %s' % flag)
     else:
       warnings.warn('Unrecognized regexp flags: %s' % flags)
-  return CoffeeScript(regexp, 'leaf')
+  regexp = re.sub(r'^/ ', '/[ ]', regexp)
+  regexp = re.sub(r' /([a-z]*)$', r'[ ]/\1', regexp)
+  return CoffeeScript(regexp, '(')
 def regexp_backrefs(node):
   assert is_string(node)
   node.value = re.sub(r'(?<!\\)(\\0|\\g<0>)', r'$&', node.value)
@@ -363,6 +429,13 @@ def dump_tree(node, level = 0):
     for child in node.children:
       dump_tree(child, level+1)
 
+def remove_prefix(node):
+  if hasattr(node, 'prefix'):
+    node.prefix = ''
+    return
+  if hasattr(node, 'children'):
+    remove_prefix(node.children[0])
+
 class CoffeeScript(parso.python.tree.Leaf):
   type = 'coffee'
   def __init__(self, value, outermost, prefix=''):
@@ -383,7 +456,9 @@ def recurse(node):
     s += node.prefix
 
     if node.type == 'string':
-      avoid_string_for_interpolation(node)
+      string = parse_string(node)
+      escape_raw_string(string)
+      return s + string['quote'] + string['content'] + string['quote']
     elif node.type == 'name':
       if is_name(node, 'this'): # Now-unescaped this must be from class method
         node.value = '@'
@@ -490,6 +565,9 @@ def recurse(node):
          is_string(node.children[0]) and \
          is_method_trailer(node.children[1], 'format') and \
          is_call_trailer(node.children[2]):
+        string = parse_string(node.children[0])
+        escape_raw_string(string)
+        make_string_double_quoted(string)
         fix_call_trailer(node.children[2])
         args = split_call_trailer(node.children[2])
         count = -1
@@ -497,9 +575,9 @@ def recurse(node):
           nonlocal count
           count += 1
           return '#{' + recurse(args[count]).lstrip() + '}'
-        prepare_string_for_interpolation(node.children[0])
+        string['content'] = re.sub(r'{}', arg, string['content'])
         node.children[0] = CoffeeScript(
-          re.sub(r'{}', arg, node.children[0].value),
+          string['quote'] + string['content'] + string['quote'],
           'leaf', node.children[0].prefix)
         node.children[1:3] = []
 
@@ -611,8 +689,9 @@ def recurse(node):
                 replace_arg_in_call_trailer(node.children[2], flags_i)
               # re.sub -> string.replace
               node.children[1].children[1].value = 'replace'
+              remove_prefix(args[2])
               node.children[0] = \
-                CoffeeScript(maybe_paren(args[2], '.'), prefix)
+                CoffeeScript(maybe_paren(args[2], '.'), '.', prefix)
               replace_arg_in_call_trailer(node.children[2], 2)
               # Regular expression first argument
               if is_string(args[0]):

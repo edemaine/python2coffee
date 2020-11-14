@@ -13,6 +13,8 @@ str(int('123')) == '123'
 int(str(123)) == 123
 ord(chr(27)) == 27
 chr(ord('A')) == 'A'
+"\a\f\\\z\U00123456#" != r"\a\f\\\z\U00123456#"
+re.sub(r' [(\[]*(\d+)/(\d+)/(\d+)[)\]]* ', repl, string, flags=re.IGNORECASE)
 a = range(17)
 b = range(2, 17)
 c = range(2, 17, 3)

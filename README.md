@@ -64,7 +64,10 @@ the converter, which results in [test.coffee](test.coffee).
   * `False` -> `false`
 * Strings
   * Replace `"...".format(...)` with CoffeeScript interpolation
-  * Escape accidental interpolation (`"#"` )
+  * Escape accidental interpolation (`"#"`)
+  * Escape raw strings (`r'...'`)
+  * Convert `\a`, `\U........`, and `\` continuations
+  * Convert `\z` to `\\z`, as CoffeeScript `\z` means `z`
   * `.startswith` -> `.startsWith`
   * `.endswith` -> `.endsWith`
   * `.find` -> `.indexOf`
