@@ -128,6 +128,18 @@ def fix_parameters(node):
       elif is_operator(arg, '**'):
         warnings.warn('No analog to def(**dargs) in CoffeeScript')
 
+def parse_string(node):
+  assert is_string(node)
+  match = re.match(r'^([a-zA-Z]*)("""|\'\'\'|"|\')(.*)(\2)$',
+    node.value, re.DOTALL)
+  assert match
+  # xxx process content according to presense of r flag
+  return {
+    'flags': match.group(1),
+    'quote': match.group(2),
+    'content': match.group(3),
+  }
+
 def avoid_string_for_interpolation(node):
   assert is_string(node)
   if re.search(r'''['"]''', node.value).group(0) == "'":
@@ -141,7 +153,7 @@ def avoid_string_for_interpolation(node):
 
 def prepare_string_for_interpolation(node):
   assert is_string(node)
-  # xxx not handling prefix like r'...'
+  # xxx not handling prefix like r'...' -- use parse_string
   if node.value.startswith("'''"):
     assert node.value.endswith("'''")
     node.value = re.sub(r'"""', '"\\"\\"', node.value)
@@ -160,10 +172,9 @@ re_flags_map = {
 def string_to_regexp(node, flags):
   assert is_string(node)
   regexp_backrefs(node)
-  s = node.value
-  match = re.match(r'^([a-zA-Z]*)("""|\'\'\'|"|\')(.*)(\2)$', s, re.DOTALL)
-  assert match
-  s = '/' + match.group(3) + '/'
+  string = parse_string(node)
+  # xxx proper escaping
+  regexp = '/' + string['content'] + '/'
   if flags:
     # xxx handle multiple flags
     if is_node(flags, 'atom_expr') and len(flags.children) == 2 and \
@@ -171,14 +182,14 @@ def string_to_regexp(node, flags):
        is_method_trailer(flags.children[1]):
       flag = flags.children[1].children[1].value
       if flag in re_flags_map:
-        s += re_flags_map[flag]
+        regexp += re_flags_map[flag]
       elif flag in ['VERBOSE', 'X']:
-        s = '//' + s + '//'
+        regexp = '//' + regexp + '//'
       else:
         warnings.warn('Regexp flag unsupported in CoffeeScript: %s' % flag)
     else:
       warnings.warn('Unrecognized regexp flags: %s' % flags)
-  return CoffeeScript(s, 'leaf')
+  return CoffeeScript(regexp, 'leaf')
 def regexp_backrefs(node):
   assert is_string(node)
   node.value = re.sub(r'(?<!\\)(\\0|\\g<0>)', r'$&', node.value)
